@@ -1,26 +1,15 @@
+"""helper classes for registry operations"""
+
 from __future__ import annotations
 
-import contextlib
 import ntpath
+import winreg
 from typing import Any, Iterator, Optional, Tuple, Union
+
 from typing_extensions import TypeAlias
 
-try:
-    import winreg
-    from winreg import HKEYType
-    HKeyTypeAlias: TypeAlias = Union[HKEYType, int]
-except Exception:  # pragma: no cover - platform specific
-    # provide a lightweight shim so the code can be imported on non-windows
-    class _Dummy:
-        HKEY_CLASSES_ROOT = 0x80000000
-        HKEY_CURRENT_USER = 0x80000001
-        HKEY_LOCAL_MACHINE = 0x80000002
-        HKEY_USERS = 0x80000003
+HKeyTypeAlias: TypeAlias = Union[winreg.HKEYType, int]
 
-    winreg = _Dummy()
-    HKEYTypeAlias: TypeAlias = int
-
-"""helper classes for registry operations"""
 
 # map the winreg root key constants to their names
 root_keys: dict[int, str] = {}
@@ -46,52 +35,50 @@ class Key:
     """A key in the registry.  This is a wrapper around the winreg module."""
 
     @classmethod
-    def _create_root_key(cls, root: int, *subkeys: str, **kwargs) -> Key:
+    def _create_root_key(cls, root: int, *subkeys: str) -> Key:
         """Creates a key object for a root key"""
-        if subkeys:
-            return cls(root, *subkeys, **kwargs)
-        key = cls(root, "", **kwargs)
-        key._handle = root
-        key.name = ""
-        assert key.is_root()
-        return key
+        return cls(root, *subkeys)
 
     @classmethod
-    def classes_root(cls, *subkeys: str, **kwargs) -> Key:
+    def classes_root(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_CLASSES_ROOT"""
-        return cls._create_root_key(winreg.HKEY_CLASSES_ROOT, *subkeys, **kwargs)
+        return cls._create_root_key(winreg.HKEY_CLASSES_ROOT, *subkeys)
 
     @classmethod
-    def current_user(cls, *subkeys: str, **kwargs) -> Key:
+    def current_user(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_CURRENT_USER"""
-        return cls._create_root_key(winreg.HKEY_CURRENT_USER, *subkeys, **kwargs)
+        return cls._create_root_key(winreg.HKEY_CURRENT_USER, *subkeys)
 
     @classmethod
-    def local_machine(cls, *subkeys: str, **kwargs) -> Key:
+    def local_machine(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_LOCAL_MACHINE"""
-        return cls._create_root_key(winreg.HKEY_LOCAL_MACHINE, *subkeys, **kwargs)
+        return cls._create_root_key(winreg.HKEY_LOCAL_MACHINE, *subkeys)
 
     @classmethod
-    def users(cls, *subkeys: str, **kwargs) -> Key:
+    def users(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_USERS"""
-        return cls._create_root_key(winreg.HKEY_USERS, *subkeys, **kwargs)
+        return cls._create_root_key(winreg.HKEY_USERS, *subkeys)
 
     @classmethod
-    def current_config(cls, *subkeys: str, **kwargs) -> Key:
+    def current_config(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_CURRENT_CONFIG"""
-        return cls._create_root_key(winreg.HKEY_CURRENT_CONFIG, *subkeys, **kwargs)
+        return cls._create_root_key(winreg.HKEY_CURRENT_CONFIG, *subkeys)
 
     def __init__(
         self,
         parent: Key | int,
         *names: str,
-        **kwargs,
     ) -> None:
         """Create a new key object.  The key is not opened or created."""
         self._parent = parent
+        if any(not n for n in names):
+            raise ValueError("Key names cannot be empty")
         self.name = ntpath.join(*names) if names else ""
         self._handle: Optional[HKeyTypeAlias] = None
-        self._kwargs = kwargs  # passed to an implicit open() in context manager
+
+    def __del__(self) -> None:
+        """Destructor to ensure the key is closed"""
+        self.close()
 
     def _hkey_name(self) -> Tuple[Any, str]:
         """returns a handle and name for the key.  Used internally."""
@@ -116,61 +103,71 @@ class Key:
 
     def open(
         self,
-        *subkeys: str,
         create: bool = False,
-        write: Optional[bool] = None,
-        check: bool = True,
-    ) -> Optional[Key]:
-        """Opens an existing key"""
-        if subkeys:
-            return self.subkey(*subkeys).open(create=create, write=write, check=check)
+        write: bool = False,
+    ) -> None:
+        """Opens an existing key.
+        If `create` is True, creates the key if it does not exist.
+        If `write` is True, opens the key for writing.  If 'create' is True, the key is always opened for writing.
+        Raises KeyError if the key does not exist and 'create' is False.
+        """
         if self.is_open():
             raise RuntimeError("Key is already open")
+        writable = True if create else write
         assert self._handle is None
         handle, name = self._hkey_name()
         try:
-            # create defaults for true if create is true, false otherwise
-            write = write if write is not None else create
+            # create argument is ignored if write is true
             access: int = getattr(winreg, "KEY_READ", 0)
-            if write:
+            if writable:
                 access |= getattr(winreg, "KEY_WRITE", 0)
-            func = (
-                getattr(winreg, "CreateKeyEx", None)
-                if create
-                else getattr(winreg, "OpenKeyEx", None)
-            )
+            func = getattr(winreg, "CreateKeyEx", None) if create else getattr(winreg, "OpenKeyEx", None)
             if func is None:  # platform shim
                 raise FileNotFoundError
             self._handle = func(handle, name, access=access)
         except FileNotFoundError as e:
-            if check:
-                raise ValueError(f"Key {self.name!r} not found") from e
-            return None
-        return self
+            raise KeyError(f"Key {self.name!r} not found") from e
 
-    def create(self, *subkeys: str, **kwargs) -> Optional[Key]:
-        """Opens or creates a key.  Alias for open(... create=True)"""
-        kwargs["create"] = True
-        return self.open(*subkeys, **kwargs)
+    def opened(self, *subkeys: str, create: bool = False, write: bool = False) -> Key:
+        """
+        Similar to open(), but always returns a fresh opened Key object
+        """
+        key = self.subkey(*subkeys)
+        key.open(create=create, write=write)
+        return key
 
-    def subkey(self, *subkeys: str, **kwargs) -> Key:
-        """Returns a subkey object"""
+    def create(self, *subkeys: str) -> Key:
+        """returns a fresh opened for writing Key object, creating it if necessary"""
+        key = self.subkey(*subkeys)
+        key.open(create=True, write=True)
+        return key
+
+    def subkey(self, *subkeys: str) -> Key:
+        """Returns a subkey object.  If no subkeys are provided, returns a new copy of this key."""
         if not subkeys:
-            raise ValueError("subkeys must be specified")
-        return Key(self, *subkeys, **kwargs)
+            return self.dup()
+        return Key(self, *subkeys)
 
-    def __call__(self, *subkeys: str, **kwargs) -> Key:
-        """Returns a subkey object"""
-        return self.subkey(*subkeys, **kwargs)
+    def dup(self) -> Key:
+        """Returns a fresh, un-opened copy of this key"""
+        return Key(self._parent, self.name)
+
+    def __call__(self, *subkeys: str) -> Key:
+        """A shorthand for subkey(...)"""
+        return self.subkey(*subkeys)
 
     def exists(self) -> bool:
         """checks if the key exists"""
         if self.is_open():
             return True
-        if self.open(check=False) is None:
+        try:
+            self.open()
+        except KeyError:
             return False
-        self.close()
-        return True
+        else:
+            return True
+        finally:
+            self.close()
 
     def is_open(self) -> bool:
         """Checks if the key is opened"""
@@ -243,9 +240,7 @@ class Key:
         except FileNotFoundError as e:
             raise KeyError(name) from e
 
-    def value_set(
-        self, name: str, value: Any, type=getattr(winreg, "REG_SZ", 1)
-    ) -> None:
+    def value_set(self, name: str, value: Any, type: int = winreg.REG_SZ) -> None:
         """Sets a value in the key, along with its type."""
         assert self._handle is not None
         if hasattr(winreg, "SetValueEx"):
@@ -296,28 +291,16 @@ class Key:
         except FileNotFoundError as e:
             raise KeyError(name) from e
 
-    def __enter__(self) -> Optional[Key]:
-        """Context manager: opens the key if required"""
+    def __enter__(self) -> Key:
+        """Enter context manager.  Raises RuntimeError if the key is not open"""
         if not self.is_open():
-            return self.open(**self._kwargs)
+            raise RuntimeError("Key is not open")
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         self.close()
 
-    @contextlib.contextmanager
-    def opened(self, *subkeys: str, create: bool = False,
-        write: Optional[bool] = None,) -> Iterator[Key]:
-        """Context manager: opens the key if required"""
-        if subkeys or not self.is_open():
-            key = self.open(*subkeys, create=create, write=write)
-            assert key is not None
-            with key:
-                yield key
-        else:
-            yield self
-
-    def delete(self, tree: bool = False, missing_ok=True) -> None:
+    def delete(self, tree: bool = False, missing_ok: bool = True) -> None:
         """Deletes the key, optionally recursively."""
         if self.is_open():
             raise ValueError("Cannot delete open key")
@@ -335,7 +318,7 @@ class Key:
         """Returns a fresh, un-opened copy of the key"""
         return Key(self._parent, self.name)
 
-    def print(self, tree=False, indent=4, level=0) -> None:
+    def print(self, tree: bool = False, indent: int = 4, level: int = 0) -> None:
         """Prints the key to stdout"""
         print(" " * level * indent + f"key: '{self.name}'")
         with self.opened() as key:
@@ -348,7 +331,7 @@ class Key:
                 for sub in key.subkeys():
                     sub.print(tree=True, indent=indent, level=level + 1)
 
-    def as_dict(self) ->  dict[str, dict[str, dict[str, Any]] | dict[str, Any]]:
+    def as_dict(self) -> dict[str, dict[str, dict[str, Any]] | dict[str, Any]]:
         """Returns the key and subkeys as a dictionary"""
         with self.opened() as key:
             return {
@@ -356,16 +339,17 @@ class Key:
                 "values": {name: value for name, value in key.items()},
             }
 
-    def from_dict(self, data, remove: bool = False) -> None:
+    def from_dict(self, data: dict[str, Any], remove: bool = False) -> None:
         """Sets the key and subkeys from a dictionary"""
         with self.opened(create=True) as key:
             for name, value in data["values"].items():
                 if isinstance(value, tuple):
-                    key.set_value(name, *value)
+                    key.value_set(name, *value)
                 else:
                     key[name] = value
             for subname, subdata in data["keys"].items():
-                key.create(subname).from_dict(subdata, remove=remove)
+                with key.create(subname) as subkey:
+                    subkey.from_dict(subdata, remove=remove)
 
             if remove:
                 for sub in key.subkeys():
