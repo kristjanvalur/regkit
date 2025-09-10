@@ -37,7 +37,12 @@ class Key:
     @classmethod
     def _create_root_key(cls, root: int, *subkeys: str) -> Key:
         """Creates a key object for a root key"""
-        return cls(root, *subkeys)
+        key = cls(root, *subkeys)
+        # an actual root key is always open and has
+        # the handle set to the root constant
+        if not subkeys:
+            key._handle = root
+        return key
 
     @classmethod
     def classes_root(cls, *subkeys: str) -> Key:
@@ -143,14 +148,17 @@ class Key:
         return key
 
     def subkey(self, *subkeys: str) -> Key:
-        """Returns a subkey object.  If no subkeys are provided, returns a new copy of this key."""
+        """Returns a subkey object.  If no subkeys are provided, it is the same as dup()."""
         if not subkeys:
             return self.dup()
         return Key(self, *subkeys)
 
     def dup(self) -> Key:
         """Returns a fresh, un-opened copy of this key"""
-        return Key(self._parent, self.name)
+        result = Key(self._parent, self.name)
+        if self.is_root():
+            result._handle = self._handle
+        return result
 
     def __call__(self, *subkeys: str) -> Key:
         """A shorthand for subkey(...)"""
@@ -183,8 +191,7 @@ class Key:
         if self.is_open() and not self.is_root():
             handle, self._handle = self._handle, None
             assert handle is not None
-            if hasattr(winreg, "CloseKey"):
-                winreg.CloseKey(handle)
+            winreg.CloseKey(handle)
 
     # iterating over the key/value pairs (items) in the key, similar to a dict.
 
@@ -243,13 +250,11 @@ class Key:
     def value_set(self, name: str, value: Any, type: int = winreg.REG_SZ) -> None:
         """Sets a value in the key, along with its type."""
         assert self._handle is not None
-        if hasattr(winreg, "SetValueEx"):
-            winreg.SetValueEx(self._handle, name, 0, type, value)
+        winreg.SetValueEx(self._handle, name, 0, type, value)
 
     def value_del(self, name: str) -> None:
         assert self._handle is not None
-        if hasattr(winreg, "DeleteValue"):
-            winreg.DeleteValue(self._handle, name)
+        winreg.DeleteValue(self._handle, name)
 
     def get(self, name: str, default: Any = None) -> Any:
         """Gets a value from the key"""
@@ -286,8 +291,7 @@ class Key:
         """Deletes a value from the key"""
         assert self._handle is not None
         try:
-            if hasattr(winreg, "DeleteValue"):
-                winreg.DeleteValue(self._handle, name)
+            winreg.DeleteValue(self._handle, name)
         except FileNotFoundError as e:
             raise KeyError(name) from e
 
@@ -311,8 +315,7 @@ class Key:
                 for subkey in list(self.subkeys()):
                     subkey.delete(tree=True)
         h, n = self._hkey_name()
-        if hasattr(winreg, "DeleteKey"):
-            winreg.DeleteKey(h, n)
+        winreg.DeleteKey(h, n)
 
     def copy(self) -> Key:
         """Returns a fresh, un-opened copy of the key"""
@@ -358,3 +361,11 @@ class Key:
                 for name in key.keys():
                     if name not in data["values"]:
                         del key[name]
+
+
+# instantiate global root keys
+classes_root = Key.classes_root()
+current_user = Key.current_user()
+local_machine = Key.local_machine()
+users = Key.users()
+current_config = Key.current_config()

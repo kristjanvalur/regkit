@@ -1,3 +1,3 @@
-__all__ = ["Key"]
+from .registry import Key, classes_root, current_config, current_user, local_machine, users
 
-from .registry import Key
+__all__ = ["Key", "classes_root", "current_user", "local_machine", "users", "current_config"]
