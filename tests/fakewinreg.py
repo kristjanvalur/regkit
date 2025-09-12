@@ -202,11 +202,28 @@ class FakeWinReg:
         entry = self.registry.get(key)
         return entry.values if entry is not None else None
 
-    def check_key(self, key: _KeyType) -> None:
+    def check_key(self, key: _KeyType, required: int | None = None) -> None:
+        """Validate handle and optionally required access.
+
+        Accepts either an HKEYType handle or a predefined int root. If
+        `required` is provided and the key is an HKEYType, perform the
+        access check on the handle.
+        """
         if isinstance(key, int):
+            # accept known predefined root constants
+            if key in (
+                HKEY_CLASSES_ROOT,
+                HKEY_CURRENT_USER,
+                HKEY_LOCAL_MACHINE,
+                HKEY_USERS,
+                HKEY_CURRENT_CONFIG,
+            ):
+                return
             raise OSError("key must be an opened key")
         if not key.name:
             raise OSError("key is closed")
+        if required is not None:
+            key.check_access(required)
 
     def create_name(self, key: _KeyType, sub_key: str | None) -> str:
         if isinstance(key, int):
@@ -256,12 +273,11 @@ class FakeWinReg:
     def OpenKeyEx(self, key: _KeyType, sub_key: str, reserved: int = 0, access: int = KEY_READ) -> HKEYType:
         full_key_name = self.create_name(key, sub_key)
         if not self.has_entry(full_key_name):
-            raise OSError("The system cannot find the file specified.")
+            raise FileNotFoundError("The system cannot find the file specified.")
         return HKEYType(full_key_name, access)
 
     def SetValueEx(self, key: _KeyType, value_name: str | None, reserved: int, type: RegType, value: Any, /) -> None:
-        self.check_key(key)
-        key.check_access(KEY_SET_VALUE)
+        self.check_key(key, KEY_SET_VALUE)
         entry = self.get_entry(key.name)
         if value_name is None:
             value_name = ""
@@ -270,8 +286,7 @@ class FakeWinReg:
         entry.set_value(value_name, type, value)
 
     def SetValue(self, key: _KeyType, sub_key: str, type: int, value: str, /) -> None:
-        self.check_key(key)
-        key.check_access(KEY_SET_VALUE)
+        self.check_key(key, KEY_SET_VALUE)
         if type is not REG_SZ:
             raise OSError("Default value must be a string")
         if not sub_key:
@@ -282,8 +297,7 @@ class FakeWinReg:
         entry.set_value("", type, value)
 
     def QueryValue(self, key: _KeyType, sub_key: str | None, /) -> str:
-        self.check_key(key)
-        key.check_access(KEY_QUERY_VALUE)
+        self.check_key(key, KEY_QUERY_VALUE)
         if sub_key:
             with self.OpenKey(key, sub_key) as sub:
                 values = self.get_entry(sub.name).values
@@ -297,8 +311,7 @@ class FakeWinReg:
         return v
 
     def QueryValueEx(self, key: _KeyType, name: str, /) -> tuple[Any, int]:
-        self.check_key(key)
-        key.check_access(KEY_QUERY_VALUE)
+        self.check_key(key, KEY_QUERY_VALUE)
         values = self.get_entry(key.name).values
         if not name:
             name = ""
@@ -307,8 +320,7 @@ class FakeWinReg:
         return values[name][1], values[name][0]
 
     def QueryInfoKey(self, key: _KeyType) -> tuple[int, int, int]:
-        self.check_key(key)
-        key.check_access(KEY_QUERY_VALUE | KEY_ENUMERATE_SUB_KEYS)
+        self.check_key(key, KEY_QUERY_VALUE | KEY_ENUMERATE_SUB_KEYS)
         subkeys = self.get_subkeys(key.name)
         entry = self.get_entry(key.name)
         values = entry.values
@@ -324,8 +336,7 @@ class FakeWinReg:
         return (num_subkeys, num_values, filetime)
 
     def DeleteValue(self, key: _KeyType, value_name: str) -> None:
-        self.check_key(key)
-        key.check_access(KEY_SET_VALUE)
+        self.check_key(key, KEY_SET_VALUE)
         entry = self.get_entry(key.name)
         if not entry.delete_value(value_name):
             raise FileNotFoundError("The system cannot find the value specified.")
@@ -341,9 +352,13 @@ class FakeWinReg:
         self.delete_key(full_key_name)
 
     def EnumKey(self, key: _KeyType, index: int, /) -> str:
-        self.check_key(key)
-        key.check_access(KEY_ENUMERATE_SUB_KEYS)
-        subkeys = sorted(self.get_subkeys(key.name))
+        self.check_key(key, KEY_ENUMERATE_SUB_KEYS)
+        # resolve the base name: HKEYType has .name, int roots need mapping
+        if isinstance(key, HKEYType):
+            base_name = key.name
+        else:
+            base_name = self.create_name(key, None)
+        subkeys = sorted(self.get_subkeys(base_name))
         try:
             return subkeys[index]
         except IndexError:
@@ -351,7 +366,8 @@ class FakeWinReg:
 
     def EnumValue(self, key: _KeyType, index: int, /) -> tuple[str, Any, int]:
         self.check_key(key)
-        key.check_access(KEY_QUERY_VALUE)
+        if isinstance(key, HKEYType):
+            key.check_access(KEY_QUERY_VALUE)
         values = self.get_entry(key.name).values
         value_names = sorted(values.keys(), key=lambda x: (x == "", x))
         try:
