@@ -10,6 +10,19 @@ from typing import Any, Final, TypeAlias
 # in nanoseconds: 11644473600 seconds
 _WINDOWS_EPOCH_DIFF_NS: int = 11644473600 * 1_000_000_000
 
+
+def time_ns_to_filetime(ns: int) -> int:
+    """Convert a time in nanoseconds since Unix epoch to Windows FILETIME
+    (100-ns intervals since 1601-01-01).
+    """
+    return (ns + _WINDOWS_EPOCH_DIFF_NS) // 100
+
+
+def filetime_to_time_ns(filetime: int) -> int:
+    """Convert a Windows FILETIME integer back to nanoseconds since Unix epoch."""
+    return filetime * 100 - _WINDOWS_EPOCH_DIFF_NS
+
+
 HKEY_CLASSES_ROOT: int = 2147483648
 HKEY_CURRENT_USER: int = 2147483649
 HKEY_LOCAL_MACHINE: int = 2147483650
@@ -121,14 +134,18 @@ class KeyEntry:
     def set_value(self, name: str, val_type: int, value: Any) -> None:
         # store default value under empty string
         self.values[name] = (val_type, value)
-        self.last_modified = time.time_ns()
+        self.touch()
 
     def delete_value(self, name: str) -> bool:
         if name in self.values:
             del self.values[name]
-            self.last_modified = time.time_ns()
+            self.touch()
             return True
         return False
+
+    def touch(self) -> None:
+        """Update the last_modified timestamp to the current time."""
+        self.last_modified = time.time_ns()
 
 
 class FakeWinReg:
@@ -147,15 +164,29 @@ class FakeWinReg:
     def create_key(self, key: str) -> dict[str, tuple[int, Any]]:
         # split the key into parts and ensure each part exists
         parts = key.split("\\")
+        # ensure each segment exists (defaultdict will create entries)
         for i in range(1, len(parts) + 1):
             name = "\\".join(parts[:i])
-            # access will auto-create due to defaultdict
             _ = self.registry[name]
-        return self.registry[key].values
+        # touch the parent key (the segment before the last) if it exists
+        parent = self.get_parent_entry(key)
+        if parent is not None:
+            parent.touch()
 
     def delete_key(self, key: str) -> None:
         if key in self.registry:
+            parent = self.get_parent_entry(key)
             del self.registry[key]
+            if parent is not None:
+                parent.touch()
+
+    def get_parent_entry(self, key: str) -> KeyEntry | None:
+        """Get the parent KeyEntry of the given key, or None if it has no parent."""
+        parts = key.split("\\")
+        if len(parts) <= 1:
+            return None
+        parent_name = "\\".join(parts[:-1])
+        return self.registry.get(parent_name)
 
     def has_children(self, key: str) -> bool:
         return any(k.startswith(f"{key}\\") for k in self.registry)
@@ -289,7 +320,7 @@ class FakeWinReg:
             filetime = 0
         else:
             ns = entry.last_modified
-            filetime = (ns + _WINDOWS_EPOCH_DIFF_NS) // 100
+            filetime = time_ns_to_filetime(ns)
         return (num_subkeys, num_values, filetime)
 
     def DeleteValue(self, key: _KeyType, value_name: str) -> None:

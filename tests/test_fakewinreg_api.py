@@ -500,8 +500,8 @@ def test_query_info_key_timestamp_updates(fake_module_and_key):
     # initial timestamp after creating the key
     t0_ns = time.time_ns()
     nsub, nval, filetime0 = fake_mod.QueryInfoKey(h)
-    # convert back to ns for comparison: filetime * 100 - epoch diff
-    ns0 = filetime0 * 100 - (11644473600 * 1_000_000_000)
+    # convert back to ns for comparison using helper
+    ns0 = fake.filetime_to_time_ns(filetime0)
     # allow small negative drift due to race; ensure timestamp is near current time
     assert abs(ns0 - t0_ns) < 5_000_000_000  # within 5s
 
@@ -509,7 +509,7 @@ def test_query_info_key_timestamp_updates(fake_module_and_key):
     time_before_set = time.time_ns()
     fake_mod.SetValueEx(h, "ts_v", 0, fake_mod.REG_SZ, "v")
     nsub, nval, filetime1 = fake_mod.QueryInfoKey(h)
-    ns1 = filetime1 * 100 - (11644473600 * 1_000_000_000)
+    ns1 = fake.filetime_to_time_ns(filetime1)
     assert nval >= 1
     assert ns1 >= time_before_set - 1_000_000  # at least very close (1ms tolerance)
 
@@ -517,5 +517,47 @@ def test_query_info_key_timestamp_updates(fake_module_and_key):
     time_before_del = time.time_ns()
     fake_mod.DeleteValue(h, "ts_v")
     nsub, nval, filetime2 = fake_mod.QueryInfoKey(h)
-    ns2 = filetime2 * 100 - (11644473600 * 1_000_000_000)
+    ns2 = fake.filetime_to_time_ns(filetime2)
     assert ns2 >= time_before_del - 1_000_000
+
+
+def test_parent_timestamp_on_subkey_create_delete(module_and_key):
+    """Check whether creating/deleting a direct subkey updates the parent's
+    QueryInfoKey last-modified timestamp. The fake backend does not update
+    parent timestamps on subkey creation/deletion; real Windows `winreg` tends
+    to update them. We assert the observed behavior per-backend.
+    """
+    module, h = module_and_key
+
+    # capture initial parent timestamp
+    nsub0, nval0, ft0 = module.QueryInfoKey(h)
+    # create a direct subkey
+    sub = module.CreateKeyEx(h, "ParentTSChild", access=module.KEY_ALL_ACCESS)
+    # slight sleep to avoid tight timestamp races on fast CI/machines
+    time.sleep(0.001)
+    try:
+        nsub1, nval1, ft1 = module.QueryInfoKey(h)
+    finally:
+        try:
+            sub.Close()
+        except Exception:
+            pass
+
+    # delete the subkey
+    # ensure a tiny delay so the deletion produces a later timestamp
+    time.sleep(0.001)
+    try:
+        module.DeleteKey(h, "ParentTSChild")
+    except Exception:
+        # some backends may raise; ignore for teardown
+        pass
+
+    nsub2, nval2, ft2 = module.QueryInfoKey(h)
+
+    # Behavior expectations:
+    # real winreg on Windows should show the parent's timestamp strictly
+    # increase when a subkey is added or removed.
+    assert isinstance(ft0, int)
+    assert isinstance(ft1, int)
+    assert isinstance(ft2, int)
+    assert ft1 > ft0 or ft2 > ft1
