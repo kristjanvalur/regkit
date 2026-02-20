@@ -1,3 +1,4 @@
+import sys
 import time
 
 import pytest
@@ -5,25 +6,7 @@ import pytest
 from tests import fakewinreg as fake
 
 
-@pytest.fixture(autouse=True)
-def monkey_winreg(monkeypatch):
-    """Monkeypatch the winreg module used by winregkit to the fake implementation."""
-    # ensure winregkit.registry imports the fake winreg
-    import src.winregkit.registry as registry_module  # typed import for reloading
-
-    # patch the module-level winreg reference
-    monkeypatch.setattr(registry_module, "winreg", fake)
-
-    # rebuild root_keys mapping inside the registry module
-    # clear and re-populate
-    registry_module.root_keys.clear()
-    for key, val in getattr(fake, "__dict__", {}).items():
-        if key.startswith("HKEY_"):
-            registry_module.root_keys[val] = key
-
-    yield
-
-
+@pytest.mark.usefixtures("require_fake_winreg")
 def test_key_basic_operations():
     from src.winregkit.registry import Key
 
@@ -60,6 +43,7 @@ def test_key_basic_operations():
     assert not sub.exists()
 
 
+@pytest.mark.usefixtures("require_fake_winreg")
 def test_subkeys_and_enum():
     from src.winregkit.registry import Key
 
@@ -83,6 +67,7 @@ def test_subkeys_and_enum():
     assert not sub.exists()
 
 
+@pytest.mark.usefixtures("require_fake_winreg")
 def test_query_info_key_timestamps():
     from src.winregkit.registry import Key
 
@@ -98,3 +83,104 @@ def test_query_info_key_timestamps():
 
     # cleanup
     fake.reset()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="real winreg tests require Windows")
+@pytest.mark.usefixtures("require_real_winreg")
+class TestKeyRealReadOnly:
+    def test_enumerate_root_subkeys(self):
+        from src.winregkit.registry import Key
+
+        with Key.current_user() as root:
+            names = [sub.name for sub in root.subkeys()]
+            assert isinstance(names, list)
+
+    def test_iterate_values_and_types(self):
+        from src.winregkit.registry import Key
+
+        with Key.current_user() as root:
+            items_typed = list(root.items_typed())
+            values_typed = list(root.values_typed())
+
+            assert len(items_typed) == len(values_typed)
+
+            if items_typed:
+                name, (value, value_type) = items_typed[0]
+                fetched_value, fetched_type = root.get_typed(name)
+                assert fetched_value == value
+                assert fetched_type == value_type
+
+    def test_open_first_subkey_and_enumerate(self):
+        from src.winregkit.registry import Key
+
+        with Key.current_user() as root:
+            first_subkey = next(root.subkeys(), None)
+            if first_subkey is None:
+                pytest.skip("No subkeys found under HKCU")
+
+            with root.open(first_subkey.name) as sub:
+                _ = list(sub.subkeys())
+                _ = list(sub.items())
+                _ = list(sub.items_typed())
+
+    def test_depth_first_hkcu_snapshot_is_tree_like(self):
+        from src.winregkit.registry import Key
+
+        max_keys = 100
+        visited = 0
+        typed_value_iterations = []
+
+        def walk(parent, key_name):
+            nonlocal visited
+            node = {"name": key_name, "values": [], "children": []}
+            try:
+                with parent.open(key_name) as key:
+                    for name, (value, value_type) in key.items_typed():
+                        node["values"].append(name)
+                        typed_value_iterations.append((name, value, value_type))
+                    if visited >= max_keys:
+                        return node
+
+                    for sub in key.subkeys():
+                        if visited >= max_keys:
+                            break
+                        visited += 1
+                        try:
+                            child = walk(key, sub.name)
+                        except (PermissionError, OSError, KeyError):
+                            continue
+                        node["children"].append(child)
+            except (PermissionError, OSError, KeyError):
+                return node
+
+            return node
+
+        with Key.current_user() as root:
+            snapshot = {"name": "HKEY_CURRENT_USER", "values": [], "children": []}
+            for name, (value, value_type) in root.items_typed():
+                snapshot["values"].append(name)
+                typed_value_iterations.append((name, value, value_type))
+            for sub in root.subkeys():
+                if visited >= max_keys:
+                    break
+                visited += 1
+                try:
+                    snapshot["children"].append(walk(root, sub.name))
+                except (PermissionError, OSError, KeyError):
+                    continue
+
+        assert visited > 0
+        assert isinstance(snapshot["children"], list)
+
+        stack = list(snapshot["children"])
+        seen_nested = False
+        while stack:
+            node = stack.pop()
+            assert isinstance(node.get("children"), list)
+            assert isinstance(node.get("values"), list)
+            if node["children"]:
+                seen_nested = True
+            stack.extend(node["children"])
+
+        assert typed_value_iterations
+        assert seen_nested or any(node["values"] for node in snapshot["children"])
