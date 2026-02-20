@@ -32,6 +32,6 @@ build-backend = "hatchling.build"
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-src = ["src/winregkit"]
+src = ["src", "tests"]
 lint.extend-select = ["I"] # Ensure import order is checked
 

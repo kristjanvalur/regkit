@@ -28,7 +28,7 @@ jobs:
           enable-cache: true
 
       - name: Lint (ruff)
-        run: uvx ruff check .
+        run: uvx ruff check
 
       - name: Sync dependencies
         run: uv sync --locked --dev

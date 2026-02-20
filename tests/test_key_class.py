@@ -4,8 +4,6 @@ import pytest
 
 from tests import fakewinreg as fake
 
-import importlib
-
 
 @pytest.fixture(autouse=True)
 def monkey_winreg(monkeypatch):
