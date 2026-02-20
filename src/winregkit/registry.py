@@ -32,7 +32,14 @@ def join_names(*names: str) -> str:
 
 
 class Key:
-    """A key in the registry.  This is a wrapper around the winreg module."""
+    """A key in the registry.
+
+    Usage style:
+    - Use root factories (`current_user`, `local_machine`, ...)
+    - Navigate with `subkey(...)`
+    - Open with `open(...)` or `create(...)` in a context manager
+    - Read/write values via dict-style access (`key[name]`)
+    """
 
     @classmethod
     def _create_root_key(cls, root: int, *subkeys: str) -> Key:
@@ -106,12 +113,16 @@ class Key:
         h, n = self._hkey_fullname()
         return f"Key<{handle_to_str(h)}:{n!r}>"
 
-    def open(
+    def open_handle(
         self,
         create: bool = False,
         write: bool = False,
     ) -> None:
-        """Opens an existing key.
+        """Opens this key in-place.
+
+        This is the low-level in-place open primitive used by `open(...)` and
+        `create(...)`.
+
         If `create` is True, creates the key if it does not exist.
         If `write` is True, opens the key for writing.  If 'create' is True, the key is always opened for writing.
         Raises KeyError if the key does not exist and 'create' is False.
@@ -133,35 +144,45 @@ class Key:
         except FileNotFoundError as e:
             raise KeyError(f"Key {self.name!r} not found") from e
 
-    def opened(self, *subkeys: str, create: bool = False, write: bool = False) -> Key:
-        """
-        Similar to open(), but always returns a fresh opened Key object
+    def open(self, *subkeys: str, create: bool = False, write: bool = False) -> Key:
+        """Open helper.
+
+        Returns a new opened Key object, leaving the original instance
+        unchanged.
         """
         key = self.subkey(*subkeys)
-        key.open(create=create, write=write)
+        key.open_handle(create=create, write=write)
         return key
 
     def create(self, *subkeys: str) -> Key:
-        """returns a fresh opened for writing Key object, creating it if necessary"""
+        """Create helper.
+
+        Convenience helper that returns a new key opened for writing,
+        creating it if necessary.
+        """
         key = self.subkey(*subkeys)
-        key.open(create=True, write=True)
+        key.open_handle(create=True, write=True)
         return key
 
     def subkey(self, *subkeys: str) -> Key:
-        """Returns a subkey object.  If no subkeys are provided, it is the same as dup()."""
+        """Navigation helper.
+
+        Returns a subkey object. If no subkeys are provided, it is the same as
+        `dup()`.
+        """
         if not subkeys:
             return self.dup()
         return Key(self, *subkeys)
 
     def dup(self) -> Key:
-        """Returns a fresh, un-opened copy of this key"""
+        """Returns a new, un-opened copy of this key"""
         result = Key(self._parent, self.name)
         if self.is_root():
             result._handle = self._handle
         return result
 
     def __call__(self, *subkeys: str) -> Key:
-        """A shorthand for subkey(...)"""
+        """Compatibility shorthand for `subkey(...)`."""
         return self.subkey(*subkeys)
 
     def exists(self) -> bool:
@@ -169,7 +190,7 @@ class Key:
         if self.is_open():
             return True
         try:
-            self.open()
+            self.open_handle()
         except KeyError:
             return False
         else:
@@ -240,7 +261,10 @@ class Key:
                 break
 
     def value_get(self, name: str, default: Any = None) -> tuple[Any, int]:
-        """Gets a value from the key, returning the value and a type."""
+        """Gets a value from the key, returning (value, type).
+
+        Prefer dict-style access (`key[name]`) when the type is not needed.
+        """
         assert self._handle is not None
         try:
             return winreg.QueryValueEx(self._handle, name)
@@ -248,7 +272,10 @@ class Key:
             raise KeyError(name) from e
 
     def value_set(self, name: str, value: Any, type: int = winreg.REG_SZ) -> None:
-        """Sets a value in the key, along with its type."""
+        """Sets a value in the key, with an explicit registry type.
+
+        Prefer dict-style assignment (`key[name] = value`) for common types.
+        """
         assert self._handle is not None
         winreg.SetValueEx(self._handle, name, 0, type, value)
 
@@ -311,20 +338,16 @@ class Key:
         if missing_ok and not self.exists():
             return
         if tree:
-            with self.opened():
+            with self.open():
                 for subkey in list(self.subkeys()):
                     subkey.delete(tree=True)
         h, n = self._hkey_name()
         winreg.DeleteKey(h, n)
 
-    def copy(self) -> Key:
-        """Returns a fresh, un-opened copy of the key"""
-        return Key(self._parent, self.name)
-
     def print(self, tree: bool = False, indent: int = 4, level: int = 0) -> None:
         """Prints the key to stdout"""
         print(" " * level * indent + f"key: '{self.name}'")
-        with self.opened() as key:
+        with self.open() as key:
             for name, value in key.items():
                 print(" " * (level + 1) * indent + f"val: '{name}' = {value})")
             if not tree:
@@ -336,7 +359,7 @@ class Key:
 
     def as_dict(self) -> dict[str, dict[str, dict[str, Any]] | dict[str, Any]]:
         """Returns the key and subkeys as a dictionary"""
-        with self.opened() as key:
+        with self.open() as key:
             return {
                 "keys": {sub.name: sub.as_dict() for sub in key.subkeys()},
                 "values": {name: value for name, value in key.items()},
@@ -344,7 +367,7 @@ class Key:
 
     def from_dict(self, data: dict[str, Any], remove: bool = False) -> None:
         """Sets the key and subkeys from a dictionary"""
-        with self.opened(create=True) as key:
+        with self.open(create=True) as key:
             for name, value in data["values"].items():
                 if isinstance(value, tuple):
                     key.value_set(name, *value)

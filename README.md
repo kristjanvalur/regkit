@@ -6,6 +6,7 @@ Helper library for Windows Registry operations.
 - Easy-to-use API for reading and writing Windows Registry keys
 - Command-line interface (CLI)
 - Python 3.11+
+- Windows platform
 - MIT License
 - Managed and built with [uv](https://github.com/astral-sh/uv)
 
@@ -25,9 +26,28 @@ Helper library for Windows Registry operations.
 
 ### Library
 ```python
-from winregkit import registry
-# ... use registry API ...
+from winregkit import current_user
+
+# create/open for write (subkeys can be passed directly)
+with current_user.create("Software", "MyApp") as key:
+  key["name"] = "winregkit"
+  key["enabled"] = 1
+
+# open for read (same inline-subkey convenience)
+with current_user.open("Software", "MyApp") as key:
+  print(key["name"])
+  print(key.get("missing", "default"))
 ```
+
+`subkey(...)` is optional convenience for pre-building a path. You can either
+chain with `subkey(...)` first, or pass subkeys directly to `open(...)` / `create(...)`.
+
+### Preferred API style
+- Use root factories (`current_user`, `local_machine`, etc.)
+- Navigate with `subkey(...)` (optional)
+- Open with `open(...)` or `create(...)` and a context manager
+- Use dict-style value access (`key[name]`, `key[name] = value`)
+- Use `value_get` / `value_set` only when explicit registry types are needed
 
 ### CLI
 ```sh
@@ -42,29 +62,11 @@ uvx registry-cli --help
   ```
 - Run tests:
   ```sh
-  pytest
-  ```
-
-## Usage
-
-### Library
-```python
-from winregkit import registry
-# ... use registry API ...
-```
-
-### CLI
-```sh
-uv pip install .
-registry-cli --help
-```
-
-## Development
-- Run tests:
-  ```sh
-  uv pip install -e .[dev]
-  pytest
+  uv run pytest
   ```
 
 ## License
 MIT License. See `LICENSE` for details.
+
+## Changelog
+See `CHANGELOG.md` for release history and policy.

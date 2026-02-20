@@ -45,13 +45,13 @@ def test_key_basic_operations():
         assert "alpha" in items and "beta" in items
 
     # reopen and read values
-    with root.opened("UnitTest") as k2:
+    with root.open("UnitTest") as k2:
         assert k2["alpha"] == "A"
         assert k2.value_get("beta")[0] == 2
 
     # test deletion of value
     # open for write to allow deletion
-    with root.opened("UnitTest", write=True) as k3:
+    with root.open("UnitTest", write=True) as k3:
         del k3["alpha"]
         with pytest.raises(KeyError):
             _ = k3["alpha"]
