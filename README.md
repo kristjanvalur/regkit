@@ -4,7 +4,6 @@ Helper library for Windows Registry operations.
 
 ## Features
 - Easy-to-use API for reading and writing Windows Registry keys
-- Command-line interface (CLI)
 - Python 3.11+
 - Windows platform
 - MIT License
@@ -48,11 +47,6 @@ chain with `subkey(...)` first, or pass subkeys directly to `open(...)` / `creat
 - Open with `open(...)` or `create(...)` and a context manager
 - Use dict-style value access (`key[name]`, `key[name] = value`)
 - Use `value_get` / `value_set` only when explicit registry types are needed
-
-### CLI
-```sh
-uvx registry-cli --help
-```
 
 ## Development
 

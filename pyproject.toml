@@ -14,9 +14,6 @@ classifiers = [
 [license]
 text = "MIT"
 
-[project.scripts]
-registry-cli = "registry_package.cli:main"
-
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "mypy"]
 
