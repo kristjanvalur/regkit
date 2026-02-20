@@ -238,6 +238,7 @@ class FakeWinReg:
             except KeyError:
                 raise OSError("Invalid predefined key") from None
         else:
+            self.check_key(key)
             if not sub_key:
                 raise OSError("sub_key must be provided when key is not a predefined key")
             key_name = key.name

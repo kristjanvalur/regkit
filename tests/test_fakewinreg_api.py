@@ -446,6 +446,30 @@ def test_check_key_closed_and_invalid(module_and_key):
         pass
 
 
+def test_fake_closed_handle_createkey_raises(fake_module_and_key):
+    fake_mod, h = fake_module_and_key
+    h.Close()
+
+    with pytest.raises(OSError):
+        fake_mod.CreateKeyEx(h, "sub", 0, fake_mod.KEY_ALL_ACCESS)
+
+
+def test_fake_closed_handle_openkey_raises(fake_module_and_key):
+    fake_mod, h = fake_module_and_key
+    h.Close()
+
+    with pytest.raises(OSError):
+        fake_mod.OpenKeyEx(h, "sub", 0, fake_mod.KEY_READ)
+
+
+def test_fake_closed_handle_deletekey_raises(fake_module_and_key):
+    fake_mod, h = fake_module_and_key
+    h.Close()
+
+    with pytest.raises(OSError):
+        fake_mod.DeleteKey(h, "sub")
+
+
 def test_delete_value_missing_raises(module_and_key):
     module, h = module_and_key
     # ensure the value does not exist
