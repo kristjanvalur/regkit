@@ -4,7 +4,7 @@
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Final, TypeAlias
+from typing import Any, Final, Iterable, TypeAlias
 
 # difference between Windows epoch (1601-01-01) and Unix epoch (1970-01-01)
 # in nanoseconds: 11644473600 seconds
@@ -145,7 +145,21 @@ class KeyEntry:
 
     def touch(self) -> None:
         """Update the last_modified timestamp to the current time."""
-        self.last_modified = time.time_ns()
+        self.last_modified = self.get_timestamp()
+
+    def get_last_modified(self) -> int:
+        """Return the last modified time as a Windows FILETIME integer."""
+        return self.convert_timestamp(self.last_modified)
+
+    @classmethod
+    def get_timestamp(cls) -> Any:
+        """return an internal timestamp representation"""
+        return time.time_ns()
+    
+    @classmethod
+    def convert_timestamp(cls, ts: Any) -> int:
+        """Convert an internal timestamp representation to a standard int."""
+        return time_ns_to_filetime(ts)
 
 
 class FakeWinReg:
@@ -153,40 +167,85 @@ class FakeWinReg:
     including the default value with the empty-string name.
     """
 
+    entry_type = KeyEntry
+
     def __init__(self) -> None:
         # registry maps full key names to KeyEntry objects; use defaultdict so
         # accessing a missing key auto-creates a KeyEntry instance.
-        self.registry: dict[str, KeyEntry] = defaultdict(KeyEntry)
+        self.registry: dict[str, self.entry_type] = defaultdict(self.entry_type)
 
     def reset(self) -> None:
         self.registry.clear()
 
-    def create_key(self, key: str) -> dict[str, tuple[int, Any]]:
+    @classmethod
+    def split_key(cls, key: str) -> list[str]:
+        return key.split("\\")
+    
+    @classmethod
+    def join_key(cls, parts: list[str]) -> str:
+        return "\\".join(parts)
+    
+    @classmethod
+    def parent_key(cls, key: str) -> str | None:
+        parts = cls.split_key(key)
+        if len(parts) <= 1:
+            return None
+        return cls.join_key(parts[:-1])
+
+    # methods abstracting the access to the registry dict.
+    # these can be overridden in subclasses to change storage behavior.
+
+    def keys_iter(self) -> Iterable[str]:
+        return iter(self.registry.keys())
+
+    def key_check(self, key: str) -> bool:
+        return key in self.registry
+
+    def key_ensure(self, key: str) -> None:
+        self.registry[key]  # access to auto-create entry if missing
+
+    def key_lookup(self, key: str, create: bool = False) -> KeyEntry | None:
+        if create or key in self.registry:
+            return self.registry[key]  # access to auto-create entry if missing
+        return None
+
+    def key_delete(self, key: str) -> None:
+        try:
+            del self.registry[key]
+        except KeyError:
+            pass
+
+    # higher level methods, providing parent-key creation and timestamping
+
+    def create_key(self, key: str) -> None:
         # split the key into parts and ensure each part exists
-        parts = key.split("\\")
-        # ensure each segment exists (defaultdict will create entries)
+        parts = self.split_key(key)
+        # ensure each segment exists
         for i in range(1, len(parts) + 1):
-            name = "\\".join(parts[:i])
-            _ = self.registry[name]
+            name = self.join_key(parts[:i])
+            self.key_ensure(name)
         # touch the parent key (the segment before the last) if it exists
         parent = self.get_parent_entry(key)
         if parent is not None:
             parent.touch()
 
     def delete_key(self, key: str) -> None:
-        if key in self.registry:
+        if self.key_check(key):
             parent = self.get_parent_entry(key)
-            del self.registry[key]
+            self.key_delete(key)
             if parent is not None:
                 parent.touch()
 
     def get_parent_entry(self, key: str) -> KeyEntry | None:
         """Get the parent KeyEntry of the given key, or None if it has no parent."""
-        parts = key.split("\\")
-        if len(parts) <= 1:
+        parent_key = self.parent_key(key)
+        if parent_key is None:
             return None
-        parent_name = "\\".join(parts[:-1])
-        return self.registry.get(parent_name)
+        return self.key_lookup(parent_key, create=True)
+    
+    def get_subkeys(self, key: str) -> Iterable[str]:
+        prefix = f"{key}\\"
+        return (k[len(prefix) :] for k in self.registry if k.startswith(prefix) and "\\" not in k[len(prefix) :])
 
     def has_children(self, key: str) -> bool:
         return any(k.startswith(f"{key}\\") for k in self.registry)
@@ -244,12 +303,8 @@ class FakeWinReg:
         full_key_name = f"{key_name}\\{sub_key}" if sub_key else key_name
         return full_key_name
 
-    def get_subkeys(self, key: str) -> list[str]:
-        prefix = f"{key}\\"
-        return [k[len(prefix) :] for k in self.registry if k.startswith(prefix) and "\\" not in k[len(prefix) :]]
-
-    # the api methods
-
+   
+        # the api methods
     def CloseKey(self, key: _KeyType) -> None:
         """Close a key handle; safe to call multiple times."""
         if isinstance(key, int):
