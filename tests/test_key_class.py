@@ -47,7 +47,7 @@ def test_key_basic_operations():
     # reopen and read values
     with root.open("UnitTest") as k2:
         assert k2["alpha"] == "A"
-        assert k2.value_get("beta")[0] == 2
+        assert k2.get_typed("beta")[0] == 2
 
     # test deletion of value
     # open for write to allow deletion

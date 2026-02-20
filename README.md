@@ -1,6 +1,14 @@
 # winregkit
 
-Helper library for Windows Registry operations.
+A pythonic library for manipulating the Windows registry.
+
+## Introduction
+
+Python comes with `winreg` for registry operations, but it is a thin wrapper over
+Win32 APIs and can be cumbersome for day-to-day usage.
+
+`winregkit` provides a higher-level, object-oriented interface with simple tree
+navigation, dict-like value access, and context-manager support.
 
 ## Features
 - Easy-to-use API for reading and writing Windows Registry keys
@@ -12,30 +20,52 @@ Helper library for Windows Registry operations.
 
 ## Installation
 
-1. Install [uv](https://github.com/astral-sh/uv):
-   ```sh
-   pip install uv
-   ```
-2. Sync project dependencies:
-   ```sh
-   uv sync
-   ```
+```sh
+pip install winregkit
+```
+
+Or the equivalent command in your preferred package manager.
 
 ## Usage
 
 ### Library
 ```python
 from winregkit import current_user
+import winreg
 
-# create/open for write (subkeys can be passed directly)
+
+# open for read
+with current_user.subkey("Software", "MyApp").open() as key:
+    print(key["name"])
+    print(key.get("missing", "default"))
+
+# open for write (subkeys can be passed directly to open as a convenience)
+with current_user.open("Software", "MyApp", write=True) as key:
+    key["name"] = "winregkit"
+    key["enabled"] = 1
+
+# create/open for write (create is shorthand for open(create=True, write=True))
 with current_user.create("Software", "MyApp") as key:
-  key["name"] = "winregkit"
-  key["enabled"] = 1
+    key["name"] = "winregkit"
+    key["enabled"] = 1
 
-# open for read (same inline-subkey convenience)
+# the Key object provides dict access and values can be iterated over:
 with current_user.open("Software", "MyApp") as key:
-  print(key["name"])
-  print(key.get("missing", "default"))
+    for name, value in key.items():
+        print(name, value)
+
+# the underlying type of a value can be retrieved, and a custom type can be
+# set, overriding default conversions:
+with current_user.open("Software", "MyApp", write=True) as key:
+    value, value_type = key.get_typed("enabled")
+    print(value, value_type)
+
+    key.set_typed("payload", b"\x00\x01\x02", winreg.REG_BINARY)
+
+# existence checks are available on keys:
+app_key = current_user.subkey("Software", "MyApp")
+print(app_key.exists())
+
 ```
 
 `subkey(...)` is optional convenience for pre-building a path. You can either
@@ -46,9 +76,13 @@ chain with `subkey(...)` first, or pass subkeys directly to `open(...)` / `creat
 - Navigate with `subkey(...)` (optional)
 - Open with `open(...)` or `create(...)` and a context manager
 - Use dict-style value access (`key[name]`, `key[name] = value`)
-- Use `value_get` / `value_set` only when explicit registry types are needed
+- Use `get_typed` / `set_typed` only when explicit registry types are needed
 
 ## Development
+
+This project uses the [uv](https://docs.astral.sh/uv/) package manager.
+
+- Install uv, e.g. using `pip install uv`
 
 - Install dev dependencies:
   ```sh

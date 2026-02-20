@@ -216,7 +216,7 @@ class Key:
 
     # iterating over the key/value pairs (items) in the key, similar to a dict.
 
-    def items_t(self) -> Iterator[tuple[str, tuple[Any, int]]]:
+    def items_typed(self) -> Iterator[tuple[str, tuple[Any, int]]]:
         """Iterates over the values in the key, returning (name, (value, type)) tuples."""
         assert self._handle is not None
         i = 0
@@ -230,22 +230,22 @@ class Key:
 
     def items(self) -> Iterator[tuple[str, Any]]:
         """Iterates over the values in the key, returning (name, value) typles"""
-        for name, (value, _) in self.items_t():
+        for name, (value, _) in self.items_typed():
             yield (name, value)
 
     def keys(self) -> Iterator[str]:
         """iterates of the item names in the key"""
-        for itemname, _ in self.items_t():
+        for itemname, _ in self.items_typed():
             yield itemname
 
     def values(self) -> Iterator[Any]:
         """iterates of the item values in the key"""
-        for _, (value, _) in self.items_t():
+        for _, (value, _) in self.items_typed():
             yield value
 
-    def values_t(self) -> Iterator[tuple[Any, int]]:
+    def values_typed(self) -> Iterator[tuple[Any, int]]:
         """iterates of the item values in the key, returning (value, type) tuples."""
-        for _, value in self.items_t():
+        for _, value in self.items_typed():
             yield value
 
     def subkeys(self) -> Iterator[Key]:
@@ -260,7 +260,7 @@ class Key:
             except OSError:
                 break
 
-    def value_get(self, name: str, default: Any = None) -> tuple[Any, int]:
+    def get_typed(self, name: str, default: Any = None) -> tuple[Any, int]:
         """Gets a value from the key, returning (value, type).
 
         Prefer dict-style access (`key[name]`) when the type is not needed.
@@ -271,7 +271,7 @@ class Key:
         except FileNotFoundError as e:
             raise KeyError(name) from e
 
-    def value_set(self, name: str, value: Any, type: int = winreg.REG_SZ) -> None:
+    def set_typed(self, name: str, value: Any, type: int = winreg.REG_SZ) -> None:
         """Sets a value in the key, with an explicit registry type.
 
         Prefer dict-style assignment (`key[name] = value`) for common types.
@@ -304,15 +304,15 @@ class Key:
     def __setitem__(self, name: str, value: Any) -> None:
         """Sets a value in the key. We assume a string"""
         if isinstance(value, tuple):
-            return self.value_set(name, *value)
+            return self.set_typed(name, *value)
         elif isinstance(value, int):
-            return self.value_set(name, value, getattr(winreg, "REG_DWORD", 4))
+            return self.set_typed(name, value, getattr(winreg, "REG_DWORD", 4))
         elif isinstance(value, bytes):
-            return self.value_set(name, value, getattr(winreg, "REG_BINARY", 3))
+            return self.set_typed(name, value, getattr(winreg, "REG_BINARY", 3))
         elif value is None:
-            return self.value_set(name, None, getattr(winreg, "REG_NONE", 0))
+            return self.set_typed(name, None, getattr(winreg, "REG_NONE", 0))
         # default handling
-        return self.value_set(name, value, getattr(winreg, "REG_SZ", 1))
+        return self.set_typed(name, value, getattr(winreg, "REG_SZ", 1))
 
     def __delitem__(self, name: str) -> None:
         """Deletes a value from the key"""
@@ -370,7 +370,7 @@ class Key:
         with self.open(create=True) as key:
             for name, value in data["values"].items():
                 if isinstance(value, tuple):
-                    key.value_set(name, *value)
+                    key.set_typed(name, *value)
                 else:
                     key[name] = value
             for subname, subdata in data["keys"].items():
