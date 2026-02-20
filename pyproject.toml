@@ -3,6 +3,14 @@ name = "winregkit"
 version = "0.0.1"
 description = "Helper library for Windows Registry operations"
 requires-python = ">=3.11"
+classifiers = [
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+	"Programming Language :: Python :: 3.13",
+	"Programming Language :: Python :: 3.14",
+	"Operating System :: Microsoft :: Windows",
+]
 [license]
 text = "MIT"
 
@@ -10,6 +18,9 @@ text = "MIT"
 registry-cli = "registry_package.cli:main"
 
 [project.optional-dependencies]
+dev = ["pytest>=8.0", "mypy"]
+
+[dependency-groups]
 dev = ["pytest>=8.0", "mypy"]
 
 [tool.mypy]
@@ -20,10 +31,6 @@ files = ["src/winregkit"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.uv]
-virtualenvs = true
-dev-dependencies = ["pytest>=8.0"]
 
 [tool.ruff]
 line-length = 120
