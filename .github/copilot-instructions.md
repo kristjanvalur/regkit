@@ -49,4 +49,5 @@
 - Tests pass locally.
 - New code passes strict typing.
 - Run `uvx ruff check` and `uvx ruff format --check` before pushing.
+- For any version bump via `uv version`, ensure `uv.lock` is updated, committed, and pushed with the release changes.
 - No unrelated formatting-only churn.
