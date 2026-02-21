@@ -119,6 +119,49 @@ def test_handle_property_requires_open_key(sandbox_key):
         _ = leaf.handle
 
 
+def test_from_path_with_full_root_name(sandbox_key):
+    from src.winregkit.registry import Key
+
+    with sandbox_key.create("FromPath", "Full") as key:
+        key["value"] = "ok"
+
+    key_from_path = Key.from_path(f"HKEY_CURRENT_USER\\{sandbox_key.name}\\FromPath\\Full")
+    with key_from_path.open() as key:
+        assert key["value"] == "ok"
+
+
+def test_from_path_with_root_alias(sandbox_key):
+    from src.winregkit.registry import Key
+
+    with sandbox_key.create("FromPath", "Alias") as key:
+        key["value"] = "ok"
+
+    key_from_path = Key.from_path(f"HKCU\\{sandbox_key.name}\\FromPath\\Alias")
+    with key_from_path.open() as key:
+        assert key["value"] == "ok"
+
+
+def test_from_path_root_only_returns_open_root():
+    from src.winregkit.registry import Key
+
+    root = Key.from_path("HKCU")
+    assert root.is_open()
+    assert root.is_root()
+
+
+def test_from_path_invalid_paths_raise_value_error():
+    from src.winregkit.registry import Key
+
+    with pytest.raises(ValueError):
+        Key.from_path("")
+
+    with pytest.raises(ValueError):
+        Key.from_path("   ")
+
+    with pytest.raises(ValueError):
+        Key.from_path("NOT_A_ROOT\\Software")
+
+
 def test_subkey_traversal_with_subkey_chain(sandbox_key):
     root = sandbox_key
 

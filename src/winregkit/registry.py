@@ -41,6 +41,19 @@ class Key:
     - Read/write values via dict-style access (`key[name]`)
     """
 
+    _ROOT_FACTORY_NAMES: dict[str, str] = {
+        "HKEY_CLASSES_ROOT": "classes_root",
+        "HKCR": "classes_root",
+        "HKEY_CURRENT_USER": "current_user",
+        "HKCU": "current_user",
+        "HKEY_LOCAL_MACHINE": "local_machine",
+        "HKLM": "local_machine",
+        "HKEY_USERS": "users",
+        "HKU": "users",
+        "HKEY_CURRENT_CONFIG": "current_config",
+        "HKCC": "current_config",
+    }
+
     @classmethod
     def _create_root_key(cls, root: int, *subkeys: str) -> Key:
         """Creates a key object for a root key"""
@@ -75,6 +88,32 @@ class Key:
     def current_config(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_CURRENT_CONFIG"""
         return cls._create_root_key(winreg.HKEY_CURRENT_CONFIG, *subkeys)
+
+    @classmethod
+    def from_path(cls, path: str) -> Key:
+        """Creates a Key object from a full registry path.
+
+        Examples:
+        - HKEY_CURRENT_USER\\Software\\MyApp
+        - HKCU\\Software\\MyApp
+        """
+        if not path:
+            raise ValueError("Path cannot be empty")
+
+        normalized = path.strip().replace("/", "\\")
+        parts = [p for p in normalized.split("\\") if p]
+        if not parts:
+            raise ValueError("Path cannot be empty")
+
+        root_token = parts[0].upper()
+        try:
+            root_factory_name = cls._ROOT_FACTORY_NAMES[root_token]
+        except KeyError as e:
+            raise ValueError(f"Unknown registry root: {parts[0]!r}") from e
+
+        root_factory = getattr(cls, root_factory_name)
+        subkeys = tuple(parts[1:])
+        return root_factory(*subkeys)
 
     def __init__(
         self,
