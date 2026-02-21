@@ -6,12 +6,8 @@ import pytest
 from tests import fakewinreg as fake
 
 
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_key_basic_operations():
-    from src.winregkit.registry import Key
-
-    # use current_user root
-    root = Key.current_user()
+def test_key_basic_operations(sandbox_key):
+    root = sandbox_key
 
     # create a subkey and set a value
     with root.create("UnitTest") as k:
@@ -37,10 +33,8 @@ def test_key_basic_operations():
         with pytest.raises(KeyError):
             _ = k3["alpha"]
 
-    # cleanup: reset fake registry to avoid relying on Key.delete tree behavior
-    fake.reset()
     sub = root.subkey("UnitTest")
-    assert not sub.exists()
+    assert sub.exists()
 
 
 def test_parametrized_open_create_write_roundtrip(sandbox_key):
@@ -74,11 +68,8 @@ def test_parametrized_value_iteration_and_get(sandbox_key):
         assert set(key.values()) == set(items.values())
 
 
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_subkeys_and_enum():
-    from src.winregkit.registry import Key
-
-    root = Key.current_user()
+def test_subkeys_and_enum(sandbox_key):
+    root = sandbox_key
     # create nested keys
     a = root.create("A")
     b = a.create("B")
@@ -87,15 +78,13 @@ def test_subkeys_and_enum():
     b.close()
     c.close()
 
-    # enumerate subkeys from root (root is already a root handle)
-    with root as r:
+    # enumerate subkeys from the sandbox root
+    with root.open() as r:
         names = {s.name for s in r.subkeys()}
         assert "A" in names
 
-    # cleanup
-    fake.reset()
     sub = root.subkey("A")
-    assert not sub.exists()
+    assert sub.exists()
 
 
 @pytest.mark.usefixtures("require_fake_winreg")
@@ -116,12 +105,8 @@ def test_query_info_key_timestamps():
     fake.reset()
 
 
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_subkey_traversal_with_subkey_chain():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_subkey_traversal_with_subkey_chain(sandbox_key):
+    root = sandbox_key
 
     with root.create("Traversal", "Level1", "Level2") as key:
         key["marker"] = "ok"
@@ -130,15 +115,9 @@ def test_subkey_traversal_with_subkey_chain():
     with via_subkey.open() as key:
         assert key["marker"] == "ok"
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_subkey_traversal_with_open_extra_args():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_subkey_traversal_with_open_extra_args(sandbox_key):
+    root = sandbox_key
 
     with root.create("Traversal", "Level1", "Level2") as key:
         key["marker"] = "ok"
@@ -146,15 +125,9 @@ def test_subkey_traversal_with_open_extra_args():
     with root.open("Traversal", "Level1", "Level2") as key:
         assert key["marker"] == "ok"
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_subkey_traversal_with_backslash_paths():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_subkey_traversal_with_backslash_paths(sandbox_key):
+    root = sandbox_key
 
     with root.create("Traversal", "Level1", "Level2") as key:
         key["marker"] = "ok"
@@ -165,29 +138,17 @@ def test_subkey_traversal_with_backslash_paths():
     with root.open("Traversal", r"Level1\Level2") as key:
         assert key["marker"] == "ok"
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_open_missing_key_raises_keyerror():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_open_missing_key_raises_keyerror(sandbox_key):
+    root = sandbox_key
     key_ref = root.subkey("OpenFlags", "Case")
 
     with pytest.raises(KeyError):
         key_ref.open()
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_open_create_true_creates_key():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_open_create_true_creates_key(sandbox_key):
+    root = sandbox_key
     key_ref = root.subkey("OpenFlags", "Case")
 
     with key_ref.open(create=True) as key:
@@ -196,15 +157,9 @@ def test_open_create_true_creates_key():
     with key_ref.open() as key:
         assert key["created"] == "yes"
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_open_read_only_rejects_write():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_open_read_only_rejects_write(sandbox_key):
+    root = sandbox_key
     key_ref = root.subkey("OpenFlags", "Case")
 
     with key_ref.open(create=True) as key:
@@ -215,15 +170,9 @@ def test_open_read_only_rejects_write():
         with pytest.raises(PermissionError):
             read_only["should_fail"] = "no"
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_open_write_true_allows_write():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_open_write_true_allows_write(sandbox_key):
+    root = sandbox_key
     key_ref = root.subkey("OpenFlags", "Case")
 
     with key_ref.open(create=True) as key:
@@ -235,15 +184,9 @@ def test_open_write_true_allows_write():
     with key_ref.open() as key:
         assert key["updated"] == "ok"
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_open_handle_on_open_key_raises_runtimeerror():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_open_handle_on_open_key_raises_runtimeerror(sandbox_key):
+    root = sandbox_key
     key_ref = root.subkey("OpenFlags", "Case")
 
     with key_ref.open(create=True):
@@ -253,15 +196,9 @@ def test_open_handle_on_open_key_raises_runtimeerror():
         with pytest.raises(RuntimeError):
             key.open_handle()
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_create_creates_or_opens_and_preserves_values():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_create_creates_or_opens_and_preserves_values(sandbox_key):
+    root = sandbox_key
 
     with root.create("CreateMethod", "Child") as created:
         created["alpha"] = 1
@@ -276,15 +213,9 @@ def test_create_creates_or_opens_and_preserves_values():
         assert opened["alpha"] == 1
         assert opened["beta"] == 2
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_create_accepts_backslash_path():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_create_accepts_backslash_path(sandbox_key):
+    root = sandbox_key
 
     with root.create(r"CreateMethod\Nested\Leaf") as nested:
         nested["leaf"] = "v"
@@ -292,15 +223,9 @@ def test_create_accepts_backslash_path():
     with root.open("CreateMethod", "Nested", "Leaf") as nested_open:
         assert nested_open["leaf"] == "v"
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_value_set_and_get_untyped():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_value_set_and_get_untyped(sandbox_key):
+    root = sandbox_key
 
     with root.create("Values") as key:
         key["text"] = "hello"
@@ -317,15 +242,9 @@ def test_value_set_and_get_untyped():
         assert key["none"] is None
         assert key["tuple_set"] == "tuple"
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_value_typed_set_and_get():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_value_typed_set_and_get(sandbox_key):
+    root = sandbox_key
 
     with root.create("Values") as key:
         key["count"] = 3
@@ -339,15 +258,9 @@ def test_value_typed_set_and_get():
         assert key.get_typed("none") == (None, fake.REG_NONE)
         assert key.get_typed("expand") == ("%PATH%", fake.REG_EXPAND_SZ)
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_value_iteration_methods():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_value_iteration_methods(sandbox_key):
+    root = sandbox_key
 
     with root.create("Values") as key:
         key["text"] = "hello"
@@ -361,15 +274,9 @@ def test_value_iteration_methods():
         assert len(list(key.values())) == len(items)
         assert len(list(key.values_typed())) == len(typed_items)
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_value_get_default_and_missing_typed():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_value_get_default_and_missing_typed(sandbox_key):
+    root = sandbox_key
 
     with root.create("Values") as key:
         key["count"] = 3
@@ -380,15 +287,9 @@ def test_value_get_default_and_missing_typed():
         with pytest.raises(KeyError):
             key.get_typed("missing")
 
-    fake.reset()
 
-
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_value_deletion_methods():
-    from src.winregkit.registry import Key
-
-    fake.reset()
-    root = Key.current_user()
+def test_value_deletion_methods(sandbox_key):
+    root = sandbox_key
 
     with root.create("Values") as key:
         key["text"] = "hello"
@@ -402,9 +303,6 @@ def test_value_deletion_methods():
         del key["count"]
         with pytest.raises(KeyError):
             _ = key["count"]
-
-    fake.reset()
-
 
 @pytest.mark.skipif(sys.platform != "win32", reason="real winreg tests require Windows")
 @pytest.mark.usefixtures("require_real_winreg")
