@@ -1,4 +1,5 @@
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -29,7 +30,15 @@ def using_fake_winreg(request: pytest.FixtureRequest) -> bool:
 @pytest.fixture(autouse=True)
 def patch_winreg(monkeypatch: pytest.MonkeyPatch, using_fake_winreg: bool) -> None:
     if using_fake_winreg:
-        monkeypatch.setitem(sys.modules, "winreg", fakewinreg)
+        backend = fakewinreg
+    else:
+        import winreg as backend
+
+    monkeypatch.setitem(sys.modules, "winreg", backend)
+
+    import src.winregkit.registry as registry_module
+
+    monkeypatch.setattr(registry_module, "winreg", backend)
 
 
 @pytest.fixture
@@ -42,3 +51,61 @@ def require_fake_winreg(using_fake_winreg: bool) -> None:
 def require_real_winreg(using_fake_winreg: bool) -> None:
     if using_fake_winreg:
         pytest.skip("Requires real winreg backend; run without --fake-winreg")
+
+
+def _delete_subtree(key) -> None:
+    try:
+        with key.open(write=True) as opened:
+            child_names = [sub.name for sub in opened.subkeys()]
+    except KeyError:
+        return
+
+    for name in child_names:
+        _delete_subtree(key.subkey(name))
+
+    key.delete(tree=False, missing_ok=True)
+
+
+@pytest.fixture
+def fake_user_key(using_fake_winreg: bool):
+    if not using_fake_winreg:
+        pytest.skip("Fake registry fixture requires fake backend")
+
+    from src.winregkit.registry import Key
+
+    suffix = uuid.uuid4().hex
+    relative_parts = ("Software", "winregkit-tests", suffix)
+
+    with Key.current_user().create(*relative_parts):
+        pass
+
+    try:
+        yield Key.current_user().subkey(*relative_parts)
+    finally:
+        _delete_subtree(Key.current_user().subkey(*relative_parts))
+
+
+@pytest.fixture
+def real_user_key(using_fake_winreg: bool):
+    if sys.platform != "win32":
+        pytest.skip("Real registry fixture requires Windows")
+    if using_fake_winreg:
+        pytest.skip("Real registry fixture requires real winreg backend")
+
+    from src.winregkit.registry import Key
+
+    suffix = uuid.uuid4().hex
+    relative_parts = ("Software", "winregkit-tests", suffix)
+
+    with Key.current_user().create(*relative_parts):
+        pass
+
+    try:
+        yield Key.current_user().subkey(*relative_parts)
+    finally:
+        _delete_subtree(Key.current_user().subkey(*relative_parts))
+
+
+@pytest.fixture(params=["fake_user_key", "real_user_key"], ids=["fake", "real"])
+def sandbox_key(request: pytest.FixtureRequest):
+    return request.getfixturevalue(request.param)
