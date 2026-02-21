@@ -93,17 +93,30 @@ def test_query_info_key_timestamps(sandbox_key):
     with sandbox_key.create("TS") as key:
         # Integration check: modifying values through Key should be reflected
         # in the backend's key last-write timestamp (QueryInfoKey FILETIME).
-        _, _, ft0 = registry_module.winreg.QueryInfoKey(key._handle)
+        _, _, ft0 = registry_module.winreg.QueryInfoKey(key.handle)
 
         ft1 = ft0
         for _ in range(10):
             time.sleep(0.01)
             key["tsv"] = "v"
-            _, _, ft1 = registry_module.winreg.QueryInfoKey(key._handle)
+            _, _, ft1 = registry_module.winreg.QueryInfoKey(key.handle)
             if ft1 > ft0:
                 break
 
         assert ft1 > ft0
+
+
+def test_handle_property_requires_open_key(sandbox_key):
+    leaf = sandbox_key.subkey("Handle")
+
+    with pytest.raises(RuntimeError):
+        _ = leaf.handle
+
+    with leaf.open(create=True) as key:
+        assert key.handle
+
+    with pytest.raises(RuntimeError):
+        _ = leaf.handle
 
 
 def test_subkey_traversal_with_subkey_chain(sandbox_key):

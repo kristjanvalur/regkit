@@ -202,6 +202,16 @@ class Key:
         """Checks if the key is opened"""
         return self._handle is not None
 
+    @property
+    def handle(self) -> HKeyTypeAlias:
+        """Returns the native backend handle for this open key.
+
+        Raises RuntimeError if the key is not open.
+        """
+        if self._handle is None:
+            raise RuntimeError("Key is not open")
+        return self._handle
+
     def is_root(self) -> bool:
         """Checks if the key is a root key"""
         return self._parent == self._handle
