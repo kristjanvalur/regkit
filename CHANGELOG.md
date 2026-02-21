@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 
 No tracked entries yet.
 
+## 0.1.0 - 2026-02-21
+
+First stable 0.1 release.
+
+- Finalizes the 0.1 API surface for key traversal, typed value operations, and path-based key construction.
+- Strengthens test coverage across fake and real backends, with backend-selective test flags for CI and local runs.
+- Enforces formatting checks in CI alongside linting, tests, and Windows mypy checks.
+
 ## 0.1.0rc2 - 2026-02-21
 
 Second release candidate for the 0.1 line.
