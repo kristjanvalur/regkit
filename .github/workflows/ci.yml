@@ -39,6 +39,9 @@ jobs:
       - name: Lint (ruff)
         run: uvx ruff check
 
+      - name: Format check (ruff)
+        run: uvx ruff format --check
+
       - name: Sync dependencies
         run: uv sync --locked --dev
 

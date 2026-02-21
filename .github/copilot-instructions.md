@@ -48,4 +48,5 @@
 - No accidental public API breaks in `winregkit.__init__` exports.
 - Tests pass locally.
 - New code passes strict typing.
+- Run `uvx ruff check` and `uvx ruff format --check` before pushing.
 - No unrelated formatting-only churn.

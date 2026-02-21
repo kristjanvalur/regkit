@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ntpath
 import winreg
-from typing import Any, Iterator, Optional, Tuple, Union
+from typing import Any, Callable, Iterator, Optional, Tuple, Union, cast
 
 from typing_extensions import TypeAlias
 
@@ -111,7 +111,7 @@ class Key:
         except KeyError as e:
             raise ValueError(f"Unknown registry root: {parts[0]!r}") from e
 
-        root_factory = getattr(cls, root_factory_name)
+        root_factory = cast(Callable[..., Key], getattr(cls, root_factory_name))
         subkeys = tuple(parts[1:])
         return root_factory(*subkeys)
 

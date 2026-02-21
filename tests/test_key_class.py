@@ -361,6 +361,7 @@ def test_value_deletion_methods(sandbox_key):
         with pytest.raises(KeyError):
             _ = key["count"]
 
+
 @pytest.mark.skipif(sys.platform != "win32", reason="real winreg tests require Windows")
 @pytest.mark.usefixtures("require_real_winreg")
 class TestKeyRealReadOnly:
