@@ -1,6 +1,6 @@
 # winregkit
 
-A pythonic library for manipulating the Windows registry.
+A modern, pythonic interface to the Windows registry.
 
 ## Introduction
 

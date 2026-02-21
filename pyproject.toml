@@ -1,7 +1,7 @@
 [project]
 name = "winregkit"
 version = "0.1.0rc1"
-description = "Helper library for Windows Registry operations"
+description = "A modern, pythonic interface to the Windows registry."
 requires-python = ">=3.11"
 classifiers = [
 	"Programming Language :: Python :: 3",
