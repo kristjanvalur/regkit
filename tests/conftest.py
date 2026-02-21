@@ -15,25 +15,20 @@ if str(SRC) not in sys.path:
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
-        "--fake-winreg",
+        "--disable-fake-backend",
         action="store_true",
         default=False,
-        help="Use tests.fakewinreg as winreg on Windows too.",
+        help="Disable running tests with tests.fakewinreg backend.",
+    )
+    parser.addoption(
+        "--disable-real-backend",
+        action="store_true",
+        default=False,
+        help="Disable running tests with real winreg backend.",
     )
 
 
-@pytest.fixture
-def using_fake_winreg(request: pytest.FixtureRequest) -> bool:
-    return sys.platform != "win32" or bool(request.config.getoption("--fake-winreg"))
-
-
-@pytest.fixture(autouse=True)
-def patch_winreg(monkeypatch: pytest.MonkeyPatch, using_fake_winreg: bool) -> None:
-    if using_fake_winreg:
-        backend = fakewinreg
-    else:
-        import winreg as backend
-
+def _patch_backend(monkeypatch: pytest.MonkeyPatch, backend) -> None:
     monkeypatch.setitem(sys.modules, "winreg", backend)
 
     import src.winregkit.registry as registry_module
@@ -41,16 +36,28 @@ def patch_winreg(monkeypatch: pytest.MonkeyPatch, using_fake_winreg: bool) -> No
     monkeypatch.setattr(registry_module, "winreg", backend)
 
 
-@pytest.fixture
-def require_fake_winreg(using_fake_winreg: bool) -> None:
-    if not using_fake_winreg:
-        pytest.skip("Requires fake winreg backend; rerun with --fake-winreg on Windows")
+@pytest.fixture(autouse=True)
+def patch_winreg(monkeypatch: pytest.MonkeyPatch) -> None:
+    if sys.platform == "win32":
+        import winreg as backend
+    else:
+        backend = fakewinreg
+
+    _patch_backend(monkeypatch, backend)
 
 
 @pytest.fixture
-def require_real_winreg(using_fake_winreg: bool) -> None:
-    if using_fake_winreg:
-        pytest.skip("Requires real winreg backend; run without --fake-winreg")
+def require_fake_winreg(request: pytest.FixtureRequest) -> None:
+    if bool(request.config.getoption("--disable-fake-backend")):
+        pytest.skip("Requires fake winreg backend; run without --disable-fake-backend")
+
+
+@pytest.fixture
+def require_real_winreg(request: pytest.FixtureRequest) -> None:
+    if sys.platform != "win32":
+        pytest.skip("Requires real winreg backend on Windows")
+    if bool(request.config.getoption("--disable-real-backend")):
+        pytest.skip("Requires real winreg backend; run without --disable-real-backend")
 
 
 def _delete_subtree(key) -> None:
@@ -67,9 +74,11 @@ def _delete_subtree(key) -> None:
 
 
 @pytest.fixture
-def fake_user_key(using_fake_winreg: bool):
-    if not using_fake_winreg:
-        pytest.skip("Fake registry fixture requires fake backend")
+def fake_user_key(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
+    if bool(request.config.getoption("--disable-fake-backend")):
+        pytest.skip("Fake backend disabled")
+
+    _patch_backend(monkeypatch, fakewinreg)
 
     from src.winregkit.registry import Key
 
@@ -86,11 +95,15 @@ def fake_user_key(using_fake_winreg: bool):
 
 
 @pytest.fixture
-def real_user_key(using_fake_winreg: bool):
+def real_user_key(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
     if sys.platform != "win32":
         pytest.skip("Real registry fixture requires Windows")
-    if using_fake_winreg:
-        pytest.skip("Real registry fixture requires real winreg backend")
+    if bool(request.config.getoption("--disable-real-backend")):
+        pytest.skip("Real backend disabled")
+
+    import winreg as real_winreg
+
+    _patch_backend(monkeypatch, real_winreg)
 
     from src.winregkit.registry import Key
 
@@ -108,4 +121,5 @@ def real_user_key(using_fake_winreg: bool):
 
 @pytest.fixture(params=["fake_user_key", "real_user_key"], ids=["fake", "real"])
 def sandbox_key(request: pytest.FixtureRequest):
-    return request.getfixturevalue(request.param)
+    fixture_name = request.param
+    return request.getfixturevalue(fixture_name)
