@@ -80,5 +80,6 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "$TAG" \
-            --notes "See CHANGELOG.md for release details." \
+            --generate-notes \
+            --notes "See CHANGELOG.md for curated release details." \
             $PRERELEASE_FLAG
