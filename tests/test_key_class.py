@@ -87,22 +87,23 @@ def test_subkeys_and_enum(sandbox_key):
     assert sub.exists()
 
 
-@pytest.mark.usefixtures("require_fake_winreg")
-def test_query_info_key_timestamps():
-    from src.winregkit.registry import Key
+def test_query_info_key_timestamps(sandbox_key):
+    import src.winregkit.registry as registry_module
 
-    root = Key.current_user()
-    with root.create("TS") as k:
-        # capture filetime via fake QueryInfoKey
-        nsub, nval, ft0 = fake.QueryInfoKey(k._handle)
-        # set a value and ensure timestamp increases
-        time.sleep(0.001)
-        k["tsv"] = "v"
-        nsub, nval, ft1 = fake.QueryInfoKey(k._handle)
+    with sandbox_key.create("TS") as key:
+        # Integration check: modifying values through Key should be reflected
+        # in the backend's key last-write timestamp (QueryInfoKey FILETIME).
+        _, _, ft0 = registry_module.winreg.QueryInfoKey(key._handle)
+
+        ft1 = ft0
+        for _ in range(10):
+            time.sleep(0.01)
+            key["tsv"] = "v"
+            _, _, ft1 = registry_module.winreg.QueryInfoKey(key._handle)
+            if ft1 > ft0:
+                break
+
         assert ft1 > ft0
-
-    # cleanup
-    fake.reset()
 
 
 def test_subkey_traversal_with_subkey_chain(sandbox_key):
