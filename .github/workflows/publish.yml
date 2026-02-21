@@ -1,12 +1,40 @@
 name: Publish
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
 
 jobs:
+  detect-tag:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      publish_tag: ${{ steps.tag.outputs.publish_tag }}
+      commit_sha: ${{ steps.sha.outputs.commit_sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Capture CI commit SHA
+        id: sha
+        run: echo "commit_sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Detect version tag at CI commit
+        id: tag
+        run: |
+          git fetch --tags --force
+          TAG=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | grep '^v' | head -n 1 || true)
+          echo "publish_tag=$TAG" >> "$GITHUB_OUTPUT"
+
   publish:
+    needs: detect-tag
+    if: needs.detect-tag.outputs.publish_tag != ''
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -18,6 +46,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.detect-tag.outputs.commit_sha }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
