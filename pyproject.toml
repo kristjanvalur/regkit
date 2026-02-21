@@ -1,6 +1,6 @@
 [project]
 name = "winregkit"
-version = "0.1.0rc1"
+version = "0.1.0rc2"
 description = "A modern, pythonic interface to the Windows registry."
 requires-python = ">=3.11"
 classifiers = [

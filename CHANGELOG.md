@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 No tracked entries yet.
 
+## 0.1.0rc2 - 2026-02-21
+
+Second release candidate for the 0.1 line.
+
+- Publish workflow now creates a basic GitHub Release alongside PyPI publication.
+- Release automation now avoids duplicate publish attempts from branch-triggered CI runs.
+
 ## 0.1.0rc1 - 2026-02-21
 
 Initial release candidate for the 0.1 line.
