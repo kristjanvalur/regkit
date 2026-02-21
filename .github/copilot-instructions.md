@@ -9,6 +9,7 @@
 - Python version target: **3.11+**.
 - Packaging/build: `hatchling` (`pyproject.toml`).
 - Environment/dependency workflow uses **uv**.
+- Version management should use `uv version` (e.g. `uv version --bump patch`, `uv version 0.0.1rc1`) instead of manually editing `pyproject.toml`.
 - Type checking uses **mypy strict mode** on `src/winregkit`.
 - Linting/import order uses **ruff** with import sorting (`I`).
 
@@ -40,6 +41,8 @@
 - Keep imports sorted and remove unused imports.
 - Keep docstrings concise and consistent with existing style.
 - Prefer straightforward implementations over abstractions.
+- Update `CHANGELOG.md` for release-worthy changes (including `rc`/pre-release tags).
+- Keep changelog entries concise and user-facing; avoid listing individual development bug-fix details.
 
 ## Things to double-check before finishing
 - No accidental public API breaks in `winregkit.__init__` exports.
