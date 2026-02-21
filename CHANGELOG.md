@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 No tracked entries yet.
 
+## 0.1.1 - 2026-02-21
+
+Patch release to validate automated GitHub Release notes.
+
+- Publish workflow now uses GitHub-generated release notes for tag releases.
+
 ## 0.1.0 - 2026-02-21
 
 First stable 0.1 release.
