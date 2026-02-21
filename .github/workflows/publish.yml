@@ -9,7 +9,7 @@ on:
 
 jobs:
   detect-tag:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.conclusion == 'success' && !github.event.workflow_run.head_branch
     runs-on: ubuntu-latest
     outputs:
       publish_tag: ${{ steps.tag.outputs.publish_tag }}
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write
 
     environment:
       name: pypi
@@ -63,3 +63,22 @@ jobs:
 
       - name: Publish to PyPI
         run: uv publish
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.detect-tag.outputs.publish_tag }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && exit 0
+
+          PRERELEASE_FLAG=""
+          case "$TAG" in
+            *a*|*b*|*rc*|*dev*) PRERELEASE_FLAG="--prerelease" ;;
+          esac
+
+          gh release create "$TAG" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "$TAG" \
+            --notes "See CHANGELOG.md for release details." \
+            $PRERELEASE_FLAG
