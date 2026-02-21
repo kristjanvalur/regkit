@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 No tracked entries yet.
 
+## 0.1.2 - 2026-02-21
+
+Patch release adding typing metadata for downstream type checkers.
+
+- Added `py.typed` marker to declare inline typing support in `winregkit` (PEP 561).
+
 ## 0.1.1 - 2026-02-21
 
 Patch release to validate automated GitHub Release notes.
