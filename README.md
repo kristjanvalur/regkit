@@ -1,5 +1,7 @@
 # winregkit
 
+[![CI](https://github.com/kristjanvalur/pywinregkit/actions/workflows/ci.yml/badge.svg)](https://github.com/kristjanvalur/pywinregkit/actions/workflows/ci.yml)
+
 A modern, pythonic interface to the Windows registry.
 
 ## Introduction
