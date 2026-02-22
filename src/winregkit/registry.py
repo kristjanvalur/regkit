@@ -54,6 +54,10 @@ class Key:
         "HKCC": "HKEY_CURRENT_CONFIG",
     }
 
+    _parent: Key | int
+    _name: str
+    _handle: HKeyTypeAlias | None
+
     @classmethod
     def _create_rooted_key(cls, root: int, *subkeys: str, root_name: str) -> Key:
         """Creates a key object for a root key"""
