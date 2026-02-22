@@ -134,6 +134,66 @@ def test_handle_property_requires_open_key(sandbox_key):
         _ = leaf.handle
 
 
+def test_parent_for_root_is_none():
+    from src.winregkit.registry import Key
+
+    root = Key.current_user()
+    assert root.parent is None
+
+
+def test_parent_for_nested_key_returns_lexical_parent(sandbox_key):
+    key = sandbox_key.subkey("Parent", "Child", "Leaf")
+
+    parent = key.parent
+    assert parent is not None
+    assert parent.name.endswith(r"Parent\Child")
+
+    grandparent = parent.parent
+    assert grandparent is not None
+    assert grandparent.name.endswith("Parent")
+
+
+def test_parts_include_root_and_subkeys(sandbox_key):
+    from src.winregkit.registry import Key
+
+    key = sandbox_key.subkey("Parts", "Leaf")
+
+    parts = key.parts
+    assert parts[0] == "HKEY_CURRENT_USER"
+    assert parts[-2:] == ("Parts", "Leaf")
+
+    rebuilt = Key.from_parts(parts)
+    assert rebuilt.parts == parts
+    assert rebuilt.name.endswith(r"Parts\Leaf")
+
+
+def test_parts_for_root_only_contains_root_token():
+    from src.winregkit.registry import Key
+
+    root = Key.current_user()
+    assert root.parts == ("HKEY_CURRENT_USER",)
+
+
+def test_from_parts_accepts_alias_and_roundtrips():
+    from src.winregkit.registry import Key
+
+    key = Key.from_parts(("HKCU", "Software", "winregkit-tests"))
+    assert key.parts == ("HKCU", "Software", "winregkit-tests")
+
+
+def test_from_parts_invalid_input_raises_value_error():
+    from src.winregkit.registry import Key
+
+    with pytest.raises(ValueError):
+        Key.from_parts(())
+
+    with pytest.raises(ValueError):
+        Key.from_parts(("", "Software"))
+
+    with pytest.raises(ValueError):
+        Key.from_parts(("NOT_A_ROOT", "Software"))
+
+
 def test_from_path_with_full_root_name(sandbox_key):
     from src.winregkit.registry import Key
 

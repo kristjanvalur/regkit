@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ntpath
 import winreg
-from typing import Any, Callable, Iterator, Optional, Tuple, Union, cast
+from typing import Any, Callable, Iterator, Optional, Sequence, Tuple, Union, cast
 
 from typing_extensions import TypeAlias
 
@@ -55,39 +55,68 @@ class Key:
     }
 
     @classmethod
-    def _create_root_key(cls, root: int, *subkeys: str) -> Key:
+    def _create_root_key(cls, root: int, *subkeys: str, root_name: str) -> Key:
         """Creates a key object for a root key"""
-        key = cls(root, *subkeys)
-        # an actual root key is always open and has
-        # the handle set to the root constant
+        root_key = cls(root)
+        root_key._handle = root
+        root_key._root_name = root_name
         if not subkeys:
-            key._handle = root
-        return key
+            return root_key
+        return root_key.subkey(*subkeys)
 
     @classmethod
     def classes_root(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_CLASSES_ROOT"""
-        return cls._create_root_key(winreg.HKEY_CLASSES_ROOT, *subkeys)
+        return cls._create_root_key(winreg.HKEY_CLASSES_ROOT, *subkeys, root_name="HKEY_CLASSES_ROOT")
 
     @classmethod
     def current_user(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_CURRENT_USER"""
-        return cls._create_root_key(winreg.HKEY_CURRENT_USER, *subkeys)
+        return cls._create_root_key(winreg.HKEY_CURRENT_USER, *subkeys, root_name="HKEY_CURRENT_USER")
 
     @classmethod
     def local_machine(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_LOCAL_MACHINE"""
-        return cls._create_root_key(winreg.HKEY_LOCAL_MACHINE, *subkeys)
+        return cls._create_root_key(winreg.HKEY_LOCAL_MACHINE, *subkeys, root_name="HKEY_LOCAL_MACHINE")
 
     @classmethod
     def users(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_USERS"""
-        return cls._create_root_key(winreg.HKEY_USERS, *subkeys)
+        return cls._create_root_key(winreg.HKEY_USERS, *subkeys, root_name="HKEY_USERS")
 
     @classmethod
     def current_config(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_CURRENT_CONFIG"""
-        return cls._create_root_key(winreg.HKEY_CURRENT_CONFIG, *subkeys)
+        return cls._create_root_key(winreg.HKEY_CURRENT_CONFIG, *subkeys, root_name="HKEY_CURRENT_CONFIG")
+
+    @classmethod
+    def from_parts(cls, parts: Sequence[str]) -> Key:
+        """Creates a Key object from path parts.
+
+        The first item must be a registry root token (for example `HKCU` or
+        `HKEY_CURRENT_USER`). Remaining items are subkey path components.
+        """
+        if not parts:
+            raise ValueError("parts cannot be empty")
+
+        root_token = str(parts[0])
+        if not root_token:
+            raise ValueError("root token cannot be empty")
+
+        token_upper = root_token.upper()
+        try:
+            root_factory_name = cls._ROOT_FACTORY_NAMES[token_upper]
+        except KeyError as e:
+            raise ValueError(f"Unknown registry root: {parts[0]!r}") from e
+
+        root_factory = cast(Callable[..., Key], getattr(cls, root_factory_name))
+        subkeys = tuple(str(part) for part in parts[1:])
+        key = root_factory(*subkeys)
+        if isinstance(key._parent, Key):
+            key._parent._root_name = token_upper
+        else:
+            key._root_name = token_upper
+        return key
 
     @classmethod
     def from_path(cls, path: str) -> Key:
@@ -105,15 +134,11 @@ class Key:
         if not parts:
             raise ValueError("Path cannot be empty")
 
-        root_token = parts[0].upper()
-        try:
-            root_factory_name = cls._ROOT_FACTORY_NAMES[root_token]
-        except KeyError as e:
-            raise ValueError(f"Unknown registry root: {parts[0]!r}") from e
+        return cls.from_parts(parts)
 
-        root_factory = cast(Callable[..., Key], getattr(cls, root_factory_name))
-        subkeys = tuple(parts[1:])
-        return root_factory(*subkeys)
+    @staticmethod
+    def _split_subkey_parts(name: str) -> tuple[str, ...]:
+        return tuple(part for part in name.replace("/", "\\").split("\\") if part)
 
     def __init__(
         self,
@@ -126,6 +151,7 @@ class Key:
             raise ValueError("Key names cannot be empty")
         self.name = ntpath.join(*names) if names else ""
         self._handle: Optional[HKeyTypeAlias] = None
+        self._root_name: str | None = None
 
     def __del__(self) -> None:
         """Destructor to ensure the key is closed"""
@@ -248,6 +274,55 @@ class Key:
     def is_open(self) -> bool:
         """Checks if the key is opened"""
         return self._handle is not None
+
+    @property
+    def parent(self) -> Key | None:
+        """Returns the lexical parent key, or `None` for a registry root."""
+        if isinstance(self._parent, Key):
+            parts = self._split_subkey_parts(self.name)
+            if not parts:
+                return self._parent.dup()
+            if len(parts) == 1:
+                return self._parent.dup()
+            return Key(self._parent, *parts[:-1])
+
+        parts = self._split_subkey_parts(self.name)
+        if not parts:
+            return None
+        if len(parts) == 1:
+            root_name = (
+                self._root_name
+                if self._root_name is not None
+                else root_keys.get(self._parent, handle_to_str(self._parent))
+            )
+            return Key._create_root_key(self._parent, root_name=root_name)
+        return Key(self._parent, *parts[:-1])
+
+    @property
+    def parts(self) -> tuple[str, ...]:
+        """Returns path parts, including the root token when present."""
+        nodes: list[Key] = []
+        current: Key | None = self
+        while current is not None:
+            nodes.append(current)
+            current = current._parent if isinstance(current._parent, Key) else None
+
+        parts: list[str] = []
+        for node in reversed(nodes):
+            node_parts = self._split_subkey_parts(node.name)
+            if isinstance(node._parent, Key):
+                parts.extend(node_parts)
+                continue
+
+            root_name = (
+                node._root_name
+                if node._root_name is not None
+                else root_keys.get(node._parent, handle_to_str(node._parent))
+            )
+            parts.append(root_name)
+            parts.extend(node_parts)
+
+        return tuple(parts)
 
     @property
     def handle(self) -> HKeyTypeAlias:

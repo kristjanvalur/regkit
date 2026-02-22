@@ -89,6 +89,8 @@ chain with `subkey(...)` first, or pass subkeys directly to `open(...)` / `creat
 - `exists()`: check whether a key exists
 - `walk(topdown=True, onerror=None, max_depth=None)`: traverse a key tree, yielding `(key, subkey_names, value_names)` (similar to `os.walk()`)
 - `keys()`, `values()`, `items()`: iterate value names, values, or `(name, value)` pairs
+- `parts`: tuple of key path components, including root token when present
+- `parent`: lexical parent key (or `None` at registry root)
 - `get(name, default=None)`: read a value with fallback default
 - `get_typed(name)` / `set_typed(name, value, type)`: read/write values with explicit registry type
 - `value_del(name)` or `del key[name]`: delete a value

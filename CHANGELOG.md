@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 No tracked entries yet.
 
+## 0.2.0 - 2026-02-22
+
+Minor release extending pathlib-style key path ergonomics.
+
+- Added `Key.parent` for lexical parent navigation.
+- Added `Key.parts` for component-wise key path inspection.
+- Added `Key.iterdir()`, `Key.joinpath(...)`, and `/` operator path composition.
+- Added `Key.walk(...)` traversal with `os.walk`-like semantics.
+
 ## 0.1.3 - 2026-02-22
 
 Patch release adding traversal and pathlib-style path ergonomics.
