@@ -174,6 +174,57 @@ def test_parents_for_nested_key_returns_ordered_ancestors(sandbox_key):
     assert ancestors[2].parts == sandbox_key.parts
 
 
+def test_key_ordering_is_case_insensitive_by_path(sandbox_key):
+    key_a = sandbox_key.subkey("Ordering", "Alpha")
+    key_b = sandbox_key.subkey("ordering", "beta")
+    key_c = sandbox_key.subkey("ORDERING", "Gamma")
+
+    sorted_names = [key.name for key in sorted([key_c, key_b, key_a])]
+    assert sorted_names == ["Alpha", "beta", "Gamma"]
+
+
+def test_key_equality_is_case_insensitive_by_path(sandbox_key):
+    key_upper = sandbox_key.subkey("CASE", "Path")
+    key_lower = sandbox_key.subkey("case", "path")
+
+    assert key_upper == key_lower
+
+
+def test_key_equality_and_hash_are_root_alias_insensitive(sandbox_key):
+    from src.winregkit.registry import Key
+
+    rel_parts = sandbox_key.parts[1:]
+    key_alias = Key.from_parts(("HKCU", *rel_parts, "AliasEq"))
+    key_full = Key.from_parts(("HKEY_CURRENT_USER", *rel_parts, "aliaseq"))
+
+    assert key_alias == key_full
+    assert hash(key_alias) == hash(key_full)
+
+
+def test_canonical_path_and_parts_use_canonical_root_alias(sandbox_key):
+    from src.winregkit.registry import Key
+
+    rel_parts = sandbox_key.parts[1:]
+    key = Key.from_parts(("HKCU", *rel_parts, "Canon"))
+
+    canonical_parts = key.canonical_parts()
+    assert canonical_parts[0] == "HKEY_CURRENT_USER"
+    assert canonical_parts[-1] == "Canon"
+    assert key.canonical_path() == "\\".join(canonical_parts)
+
+
+def test_canonical_path_for_raw_handle_ignores_first_label():
+    from src.winregkit.registry import Key
+
+    key_foo = Key(100, "foo")
+    key_bar = Key(100, "bar")
+
+    assert key_foo == key_bar
+    assert hash(key_foo) == hash(key_bar)
+    assert key_foo.canonical_path() == key_bar.canonical_path()
+    assert key_foo.canonical_parts() == key_bar.canonical_parts()
+
+
 def test_parts_include_root_and_subkeys(sandbox_key):
     from src.winregkit.registry import Key
 

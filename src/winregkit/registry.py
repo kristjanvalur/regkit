@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ntpath
 import winreg
+from functools import total_ordering
 from typing import Any, Callable, Iterator, Optional, Sequence, Tuple, Union, cast
 
 from typing_extensions import TypeAlias
@@ -31,6 +32,7 @@ def join_names(*names: str) -> str:
     return ntpath.join(*names)
 
 
+@total_ordering
 class Key:
     """A key in the registry.
 
@@ -57,6 +59,13 @@ class Key:
     _parent: Key | int
     _name: str
     _handle: HKeyTypeAlias | None
+
+    @classmethod
+    def _canonical_root_name_for_handle(cls, handle: int) -> str:
+        for root_name in set(cls._ROOT_HANDLE_NAMES.values()):
+            if getattr(winreg, root_name, None) == handle:
+                return root_name
+        return handle_to_str(handle)
 
     @classmethod
     def _create_rooted_key(cls, root: int, *subkeys: str, root_name: str) -> Key:
@@ -179,7 +188,21 @@ class Key:
 
     def path(self) -> str:
         """Returns the full registry path for this key."""
-        return "\\".join(self.parts)
+        _, name = self._hkey_fullname()
+        return name
+
+    def canonical_path(self) -> str:
+        """Returns the canonical full registry path for this key."""
+        handle, name = self._hkey_fullname()
+        parts = list(self._split_subkey_parts(name))
+        if parts:
+            parts = parts[1:]
+        root_name = self._canonical_root_name_for_handle(cast(int, handle))
+        return "\\".join((root_name, *parts)) if parts else root_name
+
+    def canonical_parts(self) -> tuple[str, ...]:
+        """Returns canonical path parts for this key."""
+        return self._split_subkey_parts(self.canonical_path())
 
     def __str__(self) -> str:
         """Returns the full registry path for this key."""
@@ -190,6 +213,19 @@ class Key:
         h, n = self._hkey_fullname()
         state = "open" if self.is_open() else "closed"
         return f"Key<{handle_to_str(h)}:{n!r} {state}>"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Key):
+            return NotImplemented
+        return self.canonical_path().casefold() == other.canonical_path().casefold()
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, Key):
+            return NotImplemented
+        return self.canonical_path().casefold() < other.canonical_path().casefold()
+
+    def __hash__(self) -> int:
+        return hash(self.canonical_path().casefold())
 
     def open_handle(
         self,
@@ -318,18 +354,8 @@ class Key:
     @property
     def parts(self) -> tuple[str, ...]:
         """Returns path parts, including the root token when present."""
-        nodes: list[Key] = []
-        current: Key | None = self
-        while current is not None:
-            nodes.append(current)
-            current = current._parent if isinstance(current._parent, Key) else None
-
-        parts: list[str] = []
-        for node in reversed(nodes):
-            node_parts = self._split_subkey_parts(node._name)
-            parts.extend(node_parts)
-
-        return tuple(parts)
+        _, name = self._hkey_fullname()
+        return self._split_subkey_parts(name)
 
     @property
     def handle(self) -> HKeyTypeAlias:
