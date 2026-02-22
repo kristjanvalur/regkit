@@ -146,11 +146,12 @@ def test_parent_for_nested_key_returns_lexical_parent(sandbox_key):
 
     parent = key.parent
     assert parent is not None
-    assert parent.name.endswith(r"Parent\Child")
+    assert parent.name == "Child"
+    assert parent.parts[-2:] == ("Parent", "Child")
 
     grandparent = parent.parent
     assert grandparent is not None
-    assert grandparent.name.endswith("Parent")
+    assert grandparent.name == "Parent"
 
 
 def test_parts_include_root_and_subkeys(sandbox_key):
@@ -164,7 +165,7 @@ def test_parts_include_root_and_subkeys(sandbox_key):
 
     rebuilt = Key.from_parts(parts)
     assert rebuilt.parts == parts
-    assert rebuilt.name.endswith(r"Parts\Leaf")
+    assert rebuilt.name == "Leaf"
 
 
 def test_parts_for_root_only_contains_root_token():
@@ -200,7 +201,8 @@ def test_from_path_with_full_root_name(sandbox_key):
     with sandbox_key.create("FromPath", "Full") as key:
         key["value"] = "ok"
 
-    key_from_path = Key.from_path(f"HKEY_CURRENT_USER\\{sandbox_key.name}\\FromPath\\Full")
+    sandbox_relative_path = "\\".join(sandbox_key.parts[1:])
+    key_from_path = Key.from_path(f"HKEY_CURRENT_USER\\{sandbox_relative_path}\\FromPath\\Full")
     with key_from_path.open() as key:
         assert key["value"] == "ok"
 
@@ -211,7 +213,8 @@ def test_from_path_with_root_alias(sandbox_key):
     with sandbox_key.create("FromPath", "Alias") as key:
         key["value"] = "ok"
 
-    key_from_path = Key.from_path(f"HKCU\\{sandbox_key.name}\\FromPath\\Alias")
+    sandbox_relative_path = "\\".join(sandbox_key.parts[1:])
+    key_from_path = Key.from_path(f"HKCU\\{sandbox_relative_path}\\FromPath\\Alias")
     with key_from_path.open() as key:
         assert key["value"] == "ok"
 

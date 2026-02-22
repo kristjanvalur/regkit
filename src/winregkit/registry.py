@@ -142,8 +142,16 @@ class Key:
         self._parent = parent
         if any(not n for n in names):
             raise ValueError("Key names cannot be empty")
-        self.name = ntpath.join(*names) if names else (handle_to_str(parent) if not isinstance(parent, Key) else "")
+        self._name = ntpath.join(*names) if names else (handle_to_str(parent) if not isinstance(parent, Key) else "")
         self._handle: Optional[HKeyTypeAlias] = parent if not isinstance(parent, Key) else None
+
+    @property
+    def name(self) -> str:
+        """Returns the final lexical path part for this key."""
+        parts = self._split_subkey_parts(self._name)
+        if not parts:
+            return ""
+        return parts[-1]
 
     def __del__(self) -> None:
         """Destructor to ensure the key is closed"""
@@ -153,17 +161,17 @@ class Key:
         """returns a handle and name for the key.  Used internally."""
         if isinstance(self._parent, Key):
             if self._parent.is_open():
-                return self._parent._handle, self.name
+                return self._parent._handle, self._name
             h, n = self._parent._hkey_name()
-            return h, join_names(n, self.name)
-        return self._parent, self.name
+            return h, join_names(n, self._name)
+        return self._parent, self._name
 
     def _hkey_fullname(self) -> Tuple[Any, str]:
         """returns a top level handle and full name for the key.  Used internally."""
         if isinstance(self._parent, Key):
             h, n = self._parent._hkey_fullname()
-            return h, join_names(n, self.name)
-        return self._parent, self.name
+            return h, join_names(n, self._name)
+        return self._parent, self._name
 
     def __repr__(self) -> str:
         """Returns a string representation of the key"""
@@ -233,7 +241,7 @@ class Key:
 
     def dup(self) -> Key:
         """Returns a new, un-opened copy of this key"""
-        result = Key(self._parent, self.name)
+        result = Key(self._parent, self._name)
         if self.is_root():
             result._handle = self._handle
         return result
@@ -271,14 +279,14 @@ class Key:
     def parent(self) -> Key | None:
         """Returns the lexical parent key, or `None` for a registry root."""
         if isinstance(self._parent, Key):
-            parts = self._split_subkey_parts(self.name)
+            parts = self._split_subkey_parts(self._name)
             if not parts:
                 return self._parent.dup()
             if len(parts) == 1:
                 return self._parent.dup()
             return Key(self._parent, *parts[:-1])
 
-        parts = self._split_subkey_parts(self.name)
+        parts = self._split_subkey_parts(self._name)
         if not parts:
             return None
         if len(parts) == 1:
@@ -296,7 +304,7 @@ class Key:
 
         parts: list[str] = []
         for node in reversed(nodes):
-            node_parts = self._split_subkey_parts(node.name)
+            node_parts = self._split_subkey_parts(node._name)
             parts.extend(node_parts)
 
         return tuple(parts)
