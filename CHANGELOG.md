@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 No tracked entries yet.
 
+## 0.1.3 - 2026-02-22
+
+Patch release adding traversal and pathlib-style path ergonomics.
+
+- Added `Key.walk(...)` with `os.walk`-like semantics for key-tree traversal.
+- Added `Key.iterdir()` as a pathlib-style alias for subkey iteration.
+- Added `Key.joinpath(...)` and `/` operator support for key path composition.
+- Expanded README method reference and examples for new traversal/path APIs.
+
 ## 0.1.2 - 2026-02-21
 
 Patch release adding typing metadata for downstream type checkers.
