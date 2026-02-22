@@ -10,10 +10,11 @@ No tracked entries yet.
 
 Minor release extending pathlib-style key path ergonomics.
 
-- Added `Key.parent` for lexical parent navigation.
-- Added `Key.parts` for component-wise key path inspection.
-- Added `Key.iterdir()`, `Key.joinpath(...)`, and `/` operator path composition.
-- Added `Key.walk(...)` traversal with `os.walk`-like semantics.
+- Added `Key.parent` and `Key.parents()` for lexical ancestor navigation.
+- Added `Key.parts` plus `Key.from_parts(...)` / `Key.from_path(...)` for path round-tripping.
+- Simplified rooted-key construction internals (`from_parts(...)` now uses direct rooted construction).
+- **Breaking:** `Key.name` now returns only the final lexical segment; internal full relative path storage is kept private.
+- Added `Key.iterdir()`, `Key.joinpath(...)`, `/` operator composition, and `Key.walk(...)` traversal (`os.walk`-like).
 
 ## 0.1.3 - 2026-02-22
 
