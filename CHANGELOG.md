@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 No tracked entries yet.
 
+## 0.2.1 - 2026-02-22
+
+Patch release refining canonical path identity semantics.
+
+- Canonical comparison/hashing now always derives the root label from the root handle.
+- Root-node lexical labels are normalized away for canonical identity (for example, `Key(100, "foo")` and `Key(100, "bar")` now compare/hash the same at root level).
+
 ## 0.2.0 - 2026-02-22
 
 Minor release extending pathlib-style key path ergonomics.
