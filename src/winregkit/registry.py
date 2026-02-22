@@ -41,17 +41,17 @@ class Key:
     - Read/write values via dict-style access (`key[name]`)
     """
 
-    _ROOT_FACTORY_NAMES: dict[str, str] = {
-        "HKEY_CLASSES_ROOT": "classes_root",
-        "HKCR": "classes_root",
-        "HKEY_CURRENT_USER": "current_user",
-        "HKCU": "current_user",
-        "HKEY_LOCAL_MACHINE": "local_machine",
-        "HKLM": "local_machine",
-        "HKEY_USERS": "users",
-        "HKU": "users",
-        "HKEY_CURRENT_CONFIG": "current_config",
-        "HKCC": "current_config",
+    _ROOT_HANDLE_NAMES: dict[str, str] = {
+        "HKEY_CLASSES_ROOT": "HKEY_CLASSES_ROOT",
+        "HKCR": "HKEY_CLASSES_ROOT",
+        "HKEY_CURRENT_USER": "HKEY_CURRENT_USER",
+        "HKCU": "HKEY_CURRENT_USER",
+        "HKEY_LOCAL_MACHINE": "HKEY_LOCAL_MACHINE",
+        "HKLM": "HKEY_LOCAL_MACHINE",
+        "HKEY_USERS": "HKEY_USERS",
+        "HKU": "HKEY_USERS",
+        "HKEY_CURRENT_CONFIG": "HKEY_CURRENT_CONFIG",
+        "HKCC": "HKEY_CURRENT_CONFIG",
     }
 
     @classmethod
@@ -103,18 +103,13 @@ class Key:
 
         token_upper = root_token.upper()
         try:
-            root_factory_name = cls._ROOT_FACTORY_NAMES[token_upper]
+            root_handle_name = cls._ROOT_HANDLE_NAMES[token_upper]
         except KeyError as e:
             raise ValueError(f"Unknown registry root: {parts[0]!r}") from e
 
-        root_factory = cast(Callable[..., Key], getattr(cls, root_factory_name))
+        root_handle = cast(int, getattr(winreg, root_handle_name))
         subkeys = tuple(str(part) for part in parts[1:])
-        key = root_factory(*subkeys)
-        if isinstance(key._parent, Key):
-            key._parent.name = token_upper
-        else:
-            key.name = token_upper
-        return key
+        return cls._create_rooted_key(root_handle, *subkeys, root_name=token_upper)
 
     @classmethod
     def from_path(cls, path: str) -> Key:
