@@ -77,12 +77,37 @@ print(app_key.exists())
 `subkey(...)` is optional convenience for pre-building a path. You can either
 chain with `subkey(...)` first, or pass subkeys directly to `open(...)` / `create(...)`.
 
-### Preferred API style
+### Typical workflow
 - Use root factories (`current_user`, `local_machine`, etc.)
 - Navigate with `subkey(...)` (optional)
 - Open with `open(...)` or `create(...)` and a context manager
 - Use dict-style value access (`key[name]`, `key[name] = value`)
 - Use `get_typed` / `set_typed` only when explicit registry types are needed
+
+### Using registry paths
+`Key` supports constructing and round-tripping full registry paths.
+
+```python
+from winregkit import Key
+
+# Construct from explicit path parts
+key = Key.from_parts(("HKCU", "Software", "MyApp"))
+
+# Construct from a full path string (either HKCU or HKEY_CURRENT_USER style)
+same_key = Key.from_path(r"HKEY_CURRENT_USER\Software\MyApp")
+
+# Read parts back (root token + subkey parts)
+assert key.parts == ("HKCU", "Software", "MyApp")
+
+# name is the final lexical segment
+assert key.name == "MyApp"
+
+# parents() returns lexical ancestors from nearest parent upward
+assert [ancestor.name for ancestor in key.parents()] == ["Software", "HKCU"]
+```
+
+Use `from_parts(...)` when you already have tokenized components, and
+`from_path(...)` when parsing user-provided registry path strings.
 
 ### `Key` methods at a glance
 - `subkey(*parts)`: build a child key path without opening it
@@ -91,8 +116,10 @@ chain with `subkey(...)` first, or pass subkeys directly to `open(...)` / `creat
 - `exists()`: check whether a key exists
 - `walk(topdown=True, onerror=None, max_depth=None)`: traverse a key tree, yielding `(key, subkey_names, value_names)` (similar to `os.walk()`)
 - `keys()`, `values()`, `items()`: iterate value names, values, or `(name, value)` pairs
+- `name`: final lexical path segment for this key
 - `parts`: tuple of key path components, including root token when present
 - `parent`: lexical parent key (or `None` at registry root)
+- `parents()`: tuple of lexical ancestors from immediate parent up to root
 - `get(name, default=None)`: read a value with fallback default
 - `get_typed(name)` / `set_typed(name, value, type)`: read/write values with explicit registry type
 - `value_del(name)` or `del key[name]`: delete a value
