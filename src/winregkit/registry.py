@@ -293,6 +293,15 @@ class Key:
             return None
         return Key(self._parent, *parts[:-1])
 
+    def parents(self) -> tuple[Key, ...]:
+        """Returns lexical ancestors from immediate parent up to root."""
+        result: list[Key] = []
+        current = self.parent
+        while current is not None:
+            result.append(current)
+            current = current.parent
+        return tuple(result)
+
     @property
     def parts(self) -> tuple[str, ...]:
         """Returns path parts, including the root token when present."""

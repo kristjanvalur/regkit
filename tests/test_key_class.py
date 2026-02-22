@@ -141,6 +141,13 @@ def test_parent_for_root_is_none():
     assert root.parent is None
 
 
+def test_parents_for_root_is_empty_tuple():
+    from src.winregkit.registry import Key
+
+    root = Key.current_user()
+    assert root.parents() == ()
+
+
 def test_parent_for_nested_key_returns_lexical_parent(sandbox_key):
     key = sandbox_key.subkey("Parent", "Child", "Leaf")
 
@@ -152,6 +159,19 @@ def test_parent_for_nested_key_returns_lexical_parent(sandbox_key):
     grandparent = parent.parent
     assert grandparent is not None
     assert grandparent.name == "Parent"
+
+
+def test_parents_for_nested_key_returns_ordered_ancestors(sandbox_key):
+    key = sandbox_key.subkey("Parent", "Child", "Leaf")
+
+    ancestors = key.parents()
+
+    assert len(ancestors) >= 3
+    assert ancestors[0].name == "Child"
+    assert ancestors[0].parts[-2:] == ("Parent", "Child")
+    assert ancestors[1].name == "Parent"
+    assert ancestors[1].parts[-1] == "Parent"
+    assert ancestors[2].parts == sandbox_key.parts
 
 
 def test_parts_include_root_and_subkeys(sandbox_key):
