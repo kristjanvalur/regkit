@@ -177,10 +177,19 @@ class Key:
             return h, join_names(n, self._name)
         return self._parent, self._name
 
+    def path(self) -> str:
+        """Returns the full registry path for this key."""
+        return "\\".join(self.parts)
+
+    def __str__(self) -> str:
+        """Returns the full registry path for this key."""
+        return self.path()
+
     def __repr__(self) -> str:
         """Returns a string representation of the key"""
         h, n = self._hkey_fullname()
-        return f"Key<{handle_to_str(h)}:{n!r}>"
+        state = "open" if self.is_open() else "closed"
+        return f"Key<{handle_to_str(h)}:{n!r} {state}>"
 
     def open_handle(
         self,
