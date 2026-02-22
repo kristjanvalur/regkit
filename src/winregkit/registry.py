@@ -224,6 +224,14 @@ class Key:
         """Compatibility shorthand for `subkey(...)`."""
         return self.subkey(*subkeys)
 
+    def joinpath(self, *subkeys: str) -> Key:
+        """Pathlib-style alias for `subkey(...)`."""
+        return self.subkey(*subkeys)
+
+    def __truediv__(self, subkey: str) -> Key:
+        """Pathlib-style shorthand for `subkey(...)` with one path part."""
+        return self.subkey(subkey)
+
     def exists(self) -> bool:
         """checks if the key exists"""
         if self.is_open():
@@ -308,6 +316,10 @@ class Key:
                 i += 1
             except OSError:
                 break
+
+    def iterdir(self) -> Iterator[Key]:
+        """Iterates over child subkeys (pathlib-style alias for `subkeys`)."""
+        return self.subkeys()
 
     def walk(
         self,

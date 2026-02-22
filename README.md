@@ -44,6 +44,10 @@ with current_user.open("Software", "MyApp", write=True) as key:
     key["name"] = "winregkit"
     key["enabled"] = 1
 
+# pathlib-style path concatenation is also supported via "/"
+with (current_user / "Software" / "MyApp").open(write=True) as key:
+    key["theme"] = "dark"
+
 # create/open for write (create is shorthand for open(create=True, write=True))
 with current_user.create("Software", "MyApp") as key:
     key["name"] = "winregkit"

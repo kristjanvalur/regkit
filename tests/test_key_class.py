@@ -87,6 +87,21 @@ def test_subkeys_and_enum(sandbox_key):
     assert sub.exists()
 
 
+def test_iterdir_alias_matches_subkeys(sandbox_key):
+    root = sandbox_key
+
+    with root.create("IterA"):
+        pass
+    with root.create("IterB"):
+        pass
+
+    with root.open() as key:
+        subkeys_names = {sub.name for sub in key.subkeys()}
+        iterdir_names = {sub.name for sub in key.iterdir()}
+
+    assert iterdir_names == subkeys_names
+
+
 def test_query_info_key_timestamps(sandbox_key):
     import src.winregkit.registry as registry_module
 
@@ -194,6 +209,110 @@ def test_subkey_traversal_with_backslash_paths(sandbox_key):
 
     with root.open("Traversal", r"Level1\Level2") as key:
         assert key["marker"] == "ok"
+
+
+def test_joinpath_alias_matches_subkey_chain(sandbox_key):
+    root = sandbox_key
+
+    with root.create("JoinPath", "A", "B") as key:
+        key["marker"] = "ok"
+
+    via_joinpath = root.joinpath("JoinPath").joinpath("A", "B")
+    with via_joinpath.open() as key:
+        assert key["marker"] == "ok"
+
+
+def test_truediv_operator_matches_subkey_chain(sandbox_key):
+    root = sandbox_key
+
+    with root.create("DivPath", "A", "B") as key:
+        key["marker"] = "ok"
+
+    via_div = root / "DivPath" / "A" / "B"
+    with via_div.open() as key:
+        assert key["marker"] == "ok"
+
+
+def test_walk_topdown_yields_root_first_with_expected_names(sandbox_key):
+    root = sandbox_key.subkey("WalkTop")
+
+    with root.open(create=True, write=True) as key:
+        key["root_val"] = "rv"
+    with root.create("A") as key:
+        key["a_val"] = "a"
+    with root.create("B"):
+        pass
+
+    walked = list(root.walk(topdown=True))
+    first_key, first_subkeys, first_values = walked[0]
+
+    assert first_key.name == root.name
+    assert set(first_subkeys) == {"A", "B"}
+    assert set(first_values) == {"root_val"}
+
+
+def test_walk_topdown_pruning_skips_branch(sandbox_key):
+    root = sandbox_key.subkey("WalkPrune")
+
+    with root.open(create=True):
+        pass
+    with root.create("Keep", "Leaf"):
+        pass
+    with root.create("Skip", "Leaf"):
+        pass
+
+    visited = []
+    for key, subkey_names, _ in root.walk(topdown=True):
+        visited.append(key.name)
+        if key.name == root.name:
+            subkey_names[:] = [name for name in subkey_names if name != "Skip"]
+
+    assert "Keep" in visited
+    assert "Leaf" in visited
+    assert "Skip" not in visited
+
+
+def test_walk_bottomup_yields_parent_last(sandbox_key):
+    root = sandbox_key.subkey("WalkBottom")
+
+    with root.open(create=True):
+        pass
+    with root.create("Child", "Grandchild"):
+        pass
+
+    walked = list(root.walk(topdown=False))
+    assert walked[-1][0].name == root.name
+
+
+def test_walk_max_depth_zero_yields_only_root(sandbox_key):
+    root = sandbox_key.subkey("WalkDepth")
+
+    with root.open(create=True, write=True) as key:
+        key["root_val"] = "rv"
+    with root.create("Child"):
+        pass
+
+    walked = list(root.walk(max_depth=0))
+    assert len(walked) == 1
+    key, subkeys, values = walked[0]
+    assert key.name == root.name
+    assert set(subkeys) == {"Child"}
+    assert set(values) == {"root_val"}
+
+
+def test_walk_missing_start_key_raises_keyerror_when_iterating(sandbox_key):
+    missing = sandbox_key.subkey("WalkMissing")
+    walker = missing.walk()
+
+    with pytest.raises(KeyError):
+        next(walker)
+
+
+def test_walk_negative_max_depth_raises_valueerror(sandbox_key):
+    root = sandbox_key.subkey("WalkNegativeDepth")
+
+    with pytest.raises(ValueError):
+        root.walk(max_depth=-1)
 
 
 def test_open_missing_key_raises_keyerror(sandbox_key):
