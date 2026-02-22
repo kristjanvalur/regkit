@@ -237,6 +237,14 @@ def test_from_path_invalid_paths_raise_value_error():
         Key.from_path("NOT_A_ROOT\\Software")
 
 
+def test_key_int_parent_with_name_is_opened_and_named():
+    import src.winregkit.registry as registry_module
+
+    key = registry_module.Key(registry_module.winreg.HKEY_CURRENT_USER, "Software")
+    assert key.is_open()
+    assert key.name == "Software"
+
+
 def test_subkey_traversal_with_subkey_chain(sandbox_key):
     root = sandbox_key
 

@@ -55,11 +55,9 @@ class Key:
     }
 
     @classmethod
-    def _create_root_key(cls, root: int, *subkeys: str, root_name: str) -> Key:
+    def _create_rooted_key(cls, root: int, *subkeys: str, root_name: str) -> Key:
         """Creates a key object for a root key"""
-        root_key = cls(root)
-        root_key._handle = root
-        root_key._root_name = root_name
+        root_key = cls(root, root_name)
         if not subkeys:
             return root_key
         return root_key.subkey(*subkeys)
@@ -67,27 +65,27 @@ class Key:
     @classmethod
     def classes_root(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_CLASSES_ROOT"""
-        return cls._create_root_key(winreg.HKEY_CLASSES_ROOT, *subkeys, root_name="HKEY_CLASSES_ROOT")
+        return cls._create_rooted_key(winreg.HKEY_CLASSES_ROOT, *subkeys, root_name="HKEY_CLASSES_ROOT")
 
     @classmethod
     def current_user(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_CURRENT_USER"""
-        return cls._create_root_key(winreg.HKEY_CURRENT_USER, *subkeys, root_name="HKEY_CURRENT_USER")
+        return cls._create_rooted_key(winreg.HKEY_CURRENT_USER, *subkeys, root_name="HKEY_CURRENT_USER")
 
     @classmethod
     def local_machine(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_LOCAL_MACHINE"""
-        return cls._create_root_key(winreg.HKEY_LOCAL_MACHINE, *subkeys, root_name="HKEY_LOCAL_MACHINE")
+        return cls._create_rooted_key(winreg.HKEY_LOCAL_MACHINE, *subkeys, root_name="HKEY_LOCAL_MACHINE")
 
     @classmethod
     def users(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_USERS"""
-        return cls._create_root_key(winreg.HKEY_USERS, *subkeys, root_name="HKEY_USERS")
+        return cls._create_rooted_key(winreg.HKEY_USERS, *subkeys, root_name="HKEY_USERS")
 
     @classmethod
     def current_config(cls, *subkeys: str) -> Key:
         """Returns a key object for HKEY_CURRENT_CONFIG"""
-        return cls._create_root_key(winreg.HKEY_CURRENT_CONFIG, *subkeys, root_name="HKEY_CURRENT_CONFIG")
+        return cls._create_rooted_key(winreg.HKEY_CURRENT_CONFIG, *subkeys, root_name="HKEY_CURRENT_CONFIG")
 
     @classmethod
     def from_parts(cls, parts: Sequence[str]) -> Key:
@@ -113,9 +111,9 @@ class Key:
         subkeys = tuple(str(part) for part in parts[1:])
         key = root_factory(*subkeys)
         if isinstance(key._parent, Key):
-            key._parent._root_name = token_upper
+            key._parent.name = token_upper
         else:
-            key._root_name = token_upper
+            key.name = token_upper
         return key
 
     @classmethod
@@ -149,9 +147,8 @@ class Key:
         self._parent = parent
         if any(not n for n in names):
             raise ValueError("Key names cannot be empty")
-        self.name = ntpath.join(*names) if names else ""
-        self._handle: Optional[HKeyTypeAlias] = None
-        self._root_name: str | None = None
+        self.name = ntpath.join(*names) if names else (handle_to_str(parent) if not isinstance(parent, Key) else "")
+        self._handle: Optional[HKeyTypeAlias] = parent if not isinstance(parent, Key) else None
 
     def __del__(self) -> None:
         """Destructor to ensure the key is closed"""
@@ -290,12 +287,7 @@ class Key:
         if not parts:
             return None
         if len(parts) == 1:
-            root_name = (
-                self._root_name
-                if self._root_name is not None
-                else root_keys.get(self._parent, handle_to_str(self._parent))
-            )
-            return Key._create_root_key(self._parent, root_name=root_name)
+            return None
         return Key(self._parent, *parts[:-1])
 
     @property
@@ -310,16 +302,6 @@ class Key:
         parts: list[str] = []
         for node in reversed(nodes):
             node_parts = self._split_subkey_parts(node.name)
-            if isinstance(node._parent, Key):
-                parts.extend(node_parts)
-                continue
-
-            root_name = (
-                node._root_name
-                if node._root_name is not None
-                else root_keys.get(node._parent, handle_to_str(node._parent))
-            )
-            parts.append(root_name)
             parts.extend(node_parts)
 
         return tuple(parts)
