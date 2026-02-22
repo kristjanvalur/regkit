@@ -309,6 +309,47 @@ class Key:
             except OSError:
                 break
 
+    def walk(
+        self,
+        topdown: bool = True,
+        onerror: Callable[[OSError], None] | None = None,
+        max_depth: int | None = None,
+    ) -> Iterator[tuple[Key, list[str], list[str]]]:
+        """Walks the key tree, yielding (key, subkey_names, value_names).
+
+        Semantics are similar to `os.walk`:
+        - `topdown=True` yields a parent before children and allows pruning by
+          mutating `subkey_names` in-place.
+        - `topdown=False` yields children before parent.
+        """
+        if max_depth is not None and max_depth < 0:
+            raise ValueError("max_depth must be >= 0")
+
+        def _walk(node: Key, depth: int) -> Iterator[tuple[Key, list[str], list[str]]]:
+            with node.open() as opened:
+                subkey_names = [subkey.name for subkey in opened.subkeys()]
+                value_names = list(opened.keys())
+
+                if topdown:
+                    yield opened.dup(), subkey_names, value_names
+
+                if max_depth is None or depth < max_depth:
+                    for subkey_name in list(subkey_names):
+                        subkey = opened.subkey(subkey_name)
+                        try:
+                            yield from _walk(subkey, depth + 1)
+                        except KeyError:
+                            continue
+                        except OSError as e:
+                            if onerror is not None:
+                                onerror(e)
+                            continue
+
+                if not topdown:
+                    yield opened.dup(), subkey_names, value_names
+
+        return _walk(self, 0)
+
     def get_typed(self, name: str, default: Any = None) -> tuple[Any, int]:
         """Gets a value from the key, returning (value, type).
 

@@ -78,6 +78,19 @@ chain with `subkey(...)` first, or pass subkeys directly to `open(...)` / `creat
 - Use dict-style value access (`key[name]`, `key[name] = value`)
 - Use `get_typed` / `set_typed` only when explicit registry types are needed
 
+### `Key` methods at a glance
+- `subkey(*parts)`: build a child key path without opening it
+- `open(*parts, create=False, write=False)`: return a new opened key for read/write access
+- `create(*parts)`: shorthand for creating/opening a key for writing
+- `exists()`: check whether a key exists
+- `walk(topdown=True, onerror=None, max_depth=None)`: traverse a key tree, yielding `(key, subkey_names, value_names)` (similar to `os.walk()`)
+- `keys()`, `values()`, `items()`: iterate value names, values, or `(name, value)` pairs
+- `get(name, default=None)`: read a value with fallback default
+- `get_typed(name)` / `set_typed(name, value, type)`: read/write values with explicit registry type
+- `value_del(name)` or `del key[name]`: delete a value
+- `delete(tree=False, missing_ok=True)`: delete a key (optionally recursively)
+- `as_dict()` / `from_dict(data)`: export/import a subtree structure
+
 ## Development
 
 This project uses the [uv](https://docs.astral.sh/uv/) package manager.
