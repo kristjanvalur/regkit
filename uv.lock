@@ -746,12 +746,6 @@ name = "winregkit"
 version = "0.2.2"
 source = { editable = "." }
 
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-]
-
 [package.dev-dependencies]
 dev = [
     { name = "mypy" },
@@ -764,11 +758,6 @@ docs = [
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "mypy", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [

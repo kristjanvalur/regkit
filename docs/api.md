@@ -1,5 +1,5 @@
 # API Reference
 
-## `winregkit.registry`
+## `winregkit`
 
-::: winregkit.registry
+::: winregkit
