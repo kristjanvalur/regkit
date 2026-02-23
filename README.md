@@ -111,27 +111,26 @@ Use `from_parts(...)` when you already have tokenized components, and
 
 ### `Key` methods at a glance
 - `subkey(*parts)`: build a child key path without opening it
-- `open(*parts, create=False, write=False)`: return a new opened key for read/write access
+- `open(...)`: return a new opened key for read/write access
 - `create(*parts)`: shorthand for creating/opening a key for writing
 - `exists()`: check whether a key exists
-- `walk(topdown=True, onerror=None, max_depth=None)`: traverse a key tree, yielding `(key, subkey_names, value_names)` (similar to `os.walk()`)
+- `walk(...)`: traverse a key tree, yielding `(key, subkey_names, value_names)` (similar to `os.walk()`)
 - `keys()`, `values()`, `items()`: iterate value names, values, or `(name, value)` pairs
 - `name`: final lexical path segment for this key
 - `parts`: tuple of key path components, including root token when present
 - `parent`: lexical parent key (or `None` at registry root)
 - `parents()`: tuple of lexical ancestors from immediate parent up to root
-- `get(name, default=None)`: read a value with fallback default
-- `get_typed(name)` / `set_typed(name, value, type)`: read/write values with explicit registry type
+- `get(name, ...)`: read a value with fallback default
+- `get_typed(...)` / `set_typed(...)`: read/write values with explicit registry type
 - `value_del(name)` or `del key[name]`: delete a value
-- `delete(tree=False, missing_ok=True)`: delete a key (optionally recursively)
+- `delete(...)`: delete a key (optionally recursively)
 - `as_dict()` / `from_dict(data)`: export/import a subtree structure
 
 ### Default value name
 The registry's default (unnamed) value is represented by the empty string (`""`).
 
 - Iteration methods (`items()`, `items_typed()`, `keys()`) return `""` for the default value name.
-- Set/delete helpers accept `None` as a convenience and normalize with `name = name or ""`.
-- For clarity and portability, prefer using `""` in user code when targeting the default value.
+- Set/delete helpers also accept `None` as an equivalent.
 
 ## Development
 

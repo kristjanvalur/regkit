@@ -571,32 +571,60 @@ class Key:
                 for sub in key.subkeys():
                     sub.print(tree=True, indent=indent, level=level + 1)
 
-    def as_dict(self) -> dict[str, dict[str, dict[str, Any]] | dict[str, Any]]:
-        """Returns the key and subkeys as a dictionary"""
+    def as_dict(self, typed: bool = False, include_name: bool = False) -> dict[str, Any]:
+        """Returns the key and subkeys as a dictionary.
+
+        If `typed` is True, values are emitted under `values_typed` as a list
+        of `(name, value, type)` tuples. Otherwise, values are emitted under
+        `values` as a mapping from name to value.
+
+        If `include_name` is True, each node includes its lexical leaf name
+        under `name` (informational only).
+        """
         with self.open() as key:
-            return {
-                "keys": {sub.name: sub.as_dict() for sub in key.subkeys()},
-                "values": {name: value for name, value in key.items()},
+            result: dict[str, Any] = {
+                "keys": {sub.name: sub.as_dict(typed=typed, include_name=include_name) for sub in key.subkeys()}
             }
+            if include_name:
+                result["name"] = key.name
+            if typed:
+                result["values_typed"] = [(name, value, value_type) for name, (value, value_type) in key.items_typed()]
+            else:
+                result["values"] = {name: value for name, value in key.items()}
+            return result
 
     def from_dict(self, data: dict[str, Any], remove: bool = False) -> None:
         """Sets the key and subkeys from a dictionary"""
         with self.open(create=True) as key:
-            for name, value in data["values"].items():
-                if isinstance(value, tuple):
-                    key.set_typed(name, *value)
-                else:
-                    key[name] = value
-            for subname, subdata in data["keys"].items():
+            values_typed_data = data.get("values_typed")
+            values_data = cast(dict[str, Any], data.get("values", {}))
+
+            desired_value_names: set[str]
+            if values_typed_data is not None:
+                desired_value_names = set()
+                for item in cast(list[tuple[str, Any, int]], values_typed_data):
+                    name, value, value_type = item
+                    key.set_typed(name, value, value_type)
+                    desired_value_names.add(name)
+            else:
+                desired_value_names = set(values_data.keys())
+                for name, value in values_data.items():
+                    if isinstance(value, tuple):
+                        key.set_typed(name, *value)
+                    else:
+                        key[name] = value
+
+            keys_data = cast(dict[str, dict[str, Any]], data.get("keys", {}))
+            for subname, subdata in keys_data.items():
                 with key.create(subname) as subkey:
                     subkey.from_dict(subdata, remove=remove)
 
             if remove:
                 for sub in key.subkeys():
-                    if sub.name not in data["keys"]:
+                    if sub.name not in keys_data:
                         sub.delete(tree=True)
                 for name in key.keys():
-                    if name not in data["values"]:
+                    if name not in desired_value_names:
                         del key[name]
 
 
