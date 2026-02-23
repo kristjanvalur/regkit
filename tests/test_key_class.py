@@ -319,6 +319,23 @@ def test_key_int_parent_with_name_is_opened_and_named():
     assert key.name == "Software"
 
 
+def test_is_hive_true_for_predefined_root():
+    from src.winregkit.registry import Key
+
+    assert Key.current_user().is_hive()
+
+
+def test_is_hive_false_for_non_hive_int_handle():
+    from src.winregkit.registry import Key
+
+    assert not Key(100, "Software").is_hive()
+
+
+def test_is_hive_false_for_non_root_key(sandbox_key):
+    child = sandbox_key.subkey("NotHive")
+    assert not child.is_hive()
+
+
 def test_subkey_traversal_with_subkey_chain(sandbox_key):
     root = sandbox_key
 

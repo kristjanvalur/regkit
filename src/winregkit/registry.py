@@ -335,12 +335,7 @@ class Key:
                 return self._parent.dup()
             return Key(self._parent, *parts[:-1])
 
-        parts = self._split_subkey_parts(self._name)
-        if not parts:
-            return None
-        if len(parts) == 1:
-            return None
-        return Key(self._parent, *parts[:-1])
+        return None
 
     def parents(self) -> tuple[Key, ...]:
         """Returns lexical ancestors from immediate parent up to root."""
@@ -369,7 +364,11 @@ class Key:
 
     def is_root(self) -> bool:
         """Checks if the key is a root key"""
-        return self._parent == self._handle
+        return not isinstance(self._parent, Key)
+
+    def is_hive(self) -> bool:
+        """Checks if the key is backed by a predefined registry hive handle."""
+        return isinstance(self._handle, int) and self._handle in root_keys
 
     def close(self) -> None:
         """Closes the key."""
