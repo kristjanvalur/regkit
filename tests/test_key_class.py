@@ -643,6 +643,48 @@ def test_default_value_set_delete_accept_none_name(sandbox_key):
             _ = key[""]
 
 
+def test_as_dict_include_name_and_typed(sandbox_key):
+    root = sandbox_key
+
+    with root.create("Tree", "Leaf") as leaf:
+        leaf["plain"] = "hello"
+        leaf.set_typed("count", 7, fake.REG_DWORD)
+
+    with root.open("Tree") as tree:
+        data = tree.as_dict(typed=True, include_name=True)
+
+    assert data["name"] == "Tree"
+    assert "values_typed" in data
+    assert "values" not in data
+    assert "Leaf" in data["keys"]
+
+    leaf_data = data["keys"]["Leaf"]
+    assert leaf_data["name"] == "Leaf"
+    typed_values = {name: (value, value_type) for name, value, value_type in leaf_data["values_typed"]}
+    assert typed_values["plain"] == ("hello", fake.REG_SZ)
+    assert typed_values["count"] == (7, fake.REG_DWORD)
+
+
+def test_from_dict_prefers_values_typed_when_present(sandbox_key):
+    root = sandbox_key
+
+    with root.create("Import") as key:
+        key["keep"] = "old"
+
+    payload = {
+        "keys": {},
+        "values": {"keep": "from-values"},
+        "values_typed": [("keep", 42, fake.REG_DWORD)],
+    }
+
+    with root.open("Import", write=True) as key:
+        key.from_dict(payload, remove=True)
+
+    with root.open("Import") as key:
+        assert key["keep"] == 42
+        assert key.get_typed("keep") == (42, fake.REG_DWORD)
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="real winreg tests require Windows")
 @pytest.mark.usefixtures("require_real_winreg")
 class TestKeyRealReadOnly:
