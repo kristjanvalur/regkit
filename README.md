@@ -126,6 +126,13 @@ Use `from_parts(...)` when you already have tokenized components, and
 - `delete(tree=False, missing_ok=True)`: delete a key (optionally recursively)
 - `as_dict()` / `from_dict(data)`: export/import a subtree structure
 
+### Default value name
+The registry's default (unnamed) value is represented by the empty string (`""`).
+
+- Iteration methods (`items()`, `items_typed()`, `keys()`) return `""` for the default value name.
+- Set/delete helpers accept `None` as a convenience and normalize with `name = name or ""`.
+- For clarity and portability, prefer using `""` in user code when targeting the default value.
+
 ## Development
 
 This project uses the [uv](https://docs.astral.sh/uv/) package manager.

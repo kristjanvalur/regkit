@@ -481,16 +481,18 @@ class Key:
         except FileNotFoundError as e:
             raise KeyError(name) from e
 
-    def set_typed(self, name: str, value: Any, type: int = winreg.REG_SZ) -> None:
+    def set_typed(self, name: str | None, value: Any, type: int = winreg.REG_SZ) -> None:
         """Sets a value in the key, with an explicit registry type.
 
         Prefer dict-style assignment (`key[name] = value`) for common types.
         """
         assert self._handle is not None
+        name = name or ""
         winreg.SetValueEx(self._handle, name, 0, type, value)
 
-    def value_del(self, name: str) -> None:
+    def value_del(self, name: str | None) -> None:
         assert self._handle is not None
+        name = name or ""
         winreg.DeleteValue(self._handle, name)
 
     def get(self, name: str, default: Any = None) -> Any:
@@ -511,8 +513,9 @@ class Key:
         except FileNotFoundError as e:
             raise KeyError(name) from e
 
-    def __setitem__(self, name: str, value: Any) -> None:
+    def __setitem__(self, name: str | None, value: Any) -> None:
         """Sets a value in the key. We assume a string"""
+        name = name or ""
         if isinstance(value, tuple):
             return self.set_typed(name, *value)
         elif isinstance(value, int):
@@ -524,9 +527,10 @@ class Key:
         # default handling
         return self.set_typed(name, value, getattr(winreg, "REG_SZ", 1))
 
-    def __delitem__(self, name: str) -> None:
+    def __delitem__(self, name: str | None) -> None:
         """Deletes a value from the key"""
         assert self._handle is not None
+        name = name or ""
         try:
             winreg.DeleteValue(self._handle, name)
         except FileNotFoundError as e:

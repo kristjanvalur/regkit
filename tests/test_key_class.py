@@ -623,6 +623,26 @@ def test_value_deletion_methods(sandbox_key):
             _ = key["count"]
 
 
+def test_default_value_set_delete_accept_none_name(sandbox_key):
+    root = sandbox_key
+
+    with root.create("Values") as key:
+        key[None] = "default"
+        assert key[""] == "default"
+
+        key.set_typed(None, "typed-default", fake.REG_SZ)
+        assert key[""] == "typed-default"
+
+        key.value_del(None)
+        with pytest.raises(KeyError):
+            _ = key[""]
+
+        key[None] = "default-again"
+        del key[None]
+        with pytest.raises(KeyError):
+            _ = key[""]
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="real winreg tests require Windows")
 @pytest.mark.usefixtures("require_real_winreg")
 class TestKeyRealReadOnly:
