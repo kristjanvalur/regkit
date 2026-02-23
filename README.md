@@ -147,6 +147,12 @@ This project uses the [uv](https://docs.astral.sh/uv/) package manager.
   uv run pytest
   ```
 
+- Build docs:
+    ```sh
+    uv sync --group docs
+    uv run mkdocs build --strict
+    ```
+
 ## License
 MIT License. See `LICENSE` for details.
 
