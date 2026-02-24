@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 No tracked entries yet.
 
+## 0.3.0 - 2026-02-24
+
+Minor release for package and project rename.
+
+- Renamed package distribution from `winregkit` to `regkit`.
+- Renamed source package path from `src/winregkit` to `src/regkit`.
+- Updated docs, CI, tests, and project metadata references to `regkit`.
+- Updated repository/docs URLs to `kristjanvalur/regkit`.
+
 ## 0.2.1 - 2026-02-22
 
 Patch release refining canonical path identity semantics.
