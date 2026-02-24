@@ -31,7 +31,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def _patch_backend(monkeypatch: pytest.MonkeyPatch, backend) -> None:
     monkeypatch.setitem(sys.modules, "winreg", backend)
 
-    import src.winregkit.registry as registry_module
+    import src.regkit.registry as registry_module
 
     monkeypatch.setattr(registry_module, "winreg", backend)
 
@@ -80,10 +80,10 @@ def fake_user_key(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReques
 
     _patch_backend(monkeypatch, fakewinreg)
 
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     suffix = uuid.uuid4().hex
-    relative_parts = ("Software", "winregkit-tests", suffix)
+    relative_parts = ("Software", "regkit-tests", suffix)
 
     with Key.current_user().create(*relative_parts):
         pass
@@ -105,10 +105,10 @@ def real_user_key(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReques
 
     _patch_backend(monkeypatch, real_winreg)
 
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     suffix = uuid.uuid4().hex
-    relative_parts = ("Software", "winregkit-tests", suffix)
+    relative_parts = ("Software", "regkit-tests", suffix)
 
     with Key.current_user().create(*relative_parts):
         pass

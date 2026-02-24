@@ -1,6 +1,6 @@
-# winregkit
+# regkit
 
-[![CI](https://github.com/kristjanvalur/pywinregkit/actions/workflows/ci.yml/badge.svg)](https://github.com/kristjanvalur/pywinregkit/actions/workflows/ci.yml)
+[![CI](https://github.com/kristjanvalur/regkit/actions/workflows/ci.yml/badge.svg)](https://github.com/kristjanvalur/regkit/actions/workflows/ci.yml)
 
 A modern, pythonic interface to the Windows registry.
 
@@ -9,7 +9,7 @@ A modern, pythonic interface to the Windows registry.
 Python comes with `winreg` for registry operations, but it is a thin wrapper over
 Win32 APIs and can be cumbersome for day-to-day usage.
 
-`winregkit` provides a higher-level, object-oriented interface with simple tree
+`regkit` provides a higher-level, object-oriented interface with simple tree
 navigation, dict-like value access, and context-manager support.
 
 ## Features
@@ -23,7 +23,7 @@ navigation, dict-like value access, and context-manager support.
 ## Installation
 
 ```sh
-pip install winregkit
+pip install regkit
 ```
 
 Or the equivalent command in your preferred package manager.
@@ -32,7 +32,7 @@ Or the equivalent command in your preferred package manager.
 
 ### Library
 ```python
-from winregkit import current_user
+from regkit import current_user
 import winreg
 
 
@@ -43,7 +43,7 @@ with current_user.subkey("Software", "MyApp").open() as key:
 
 # open for write (subkeys can be passed directly to open as a convenience)
 with current_user.open("Software", "MyApp", write=True) as key:
-    key["name"] = "winregkit"
+    key["name"] = "regkit"
     key["enabled"] = 1
 
 # pathlib-style path concatenation is also supported via "/"
@@ -52,7 +52,7 @@ with (current_user / "Software" / "MyApp").open(write=True) as key:
 
 # create/open for write (create is shorthand for open(create=True, write=True))
 with current_user.create("Software", "MyApp") as key:
-    key["name"] = "winregkit"
+    key["name"] = "regkit"
     key["enabled"] = 1
 
 # the Key object provides dict access and values can be iterated over:
@@ -88,7 +88,7 @@ chain with `subkey(...)` first, or pass subkeys directly to `open(...)` / `creat
 `Key` supports constructing and round-tripping full registry paths.
 
 ```python
-from winregkit import Key
+from regkit import Key
 
 # Construct from explicit path parts
 key = Key.from_parts(("HKCU", "Software", "MyApp"))

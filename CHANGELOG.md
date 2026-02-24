@@ -36,7 +36,7 @@ Patch release adding traversal and pathlib-style path ergonomics.
 
 Patch release adding typing metadata for downstream type checkers.
 
-- Added `py.typed` marker to declare inline typing support in `winregkit` (PEP 561).
+- Added `py.typed` marker to declare inline typing support in `regkit` (PEP 561).
 
 ## 0.1.1 - 2026-02-21
 

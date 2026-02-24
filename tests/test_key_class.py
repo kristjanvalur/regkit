@@ -56,13 +56,13 @@ def test_parametrized_open_create_write_roundtrip(sandbox_key):
 
 def test_parametrized_value_iteration_and_get(sandbox_key):
     with sandbox_key.create("Values") as key:
-        key["name"] = "winregkit"
+        key["name"] = "regkit"
         key["enabled"] = 1
 
     with sandbox_key.open("Values") as key:
         assert key.get("missing", "fallback") == "fallback"
         items = dict(key.items())
-        assert items["name"] == "winregkit"
+        assert items["name"] == "regkit"
         assert items["enabled"] == 1
         assert set(key.keys()) == set(items.keys())
         assert set(key.values()) == set(items.values())
@@ -103,7 +103,7 @@ def test_iterdir_alias_matches_subkeys(sandbox_key):
 
 
 def test_query_info_key_timestamps(sandbox_key):
-    import src.winregkit.registry as registry_module
+    import src.regkit.registry as registry_module
 
     with sandbox_key.create("TS") as key:
         # Integration check: modifying values through Key should be reflected
@@ -135,14 +135,14 @@ def test_handle_property_requires_open_key(sandbox_key):
 
 
 def test_parent_for_root_is_none():
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     root = Key.current_user()
     assert root.parent is None
 
 
 def test_parents_for_root_is_empty_tuple():
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     root = Key.current_user()
     assert root.parents() == ()
@@ -191,7 +191,7 @@ def test_key_equality_is_case_insensitive_by_path(sandbox_key):
 
 
 def test_key_equality_and_hash_are_root_alias_insensitive(sandbox_key):
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     rel_parts = sandbox_key.parts[1:]
     key_alias = Key.from_parts(("HKCU", *rel_parts, "AliasEq"))
@@ -202,7 +202,7 @@ def test_key_equality_and_hash_are_root_alias_insensitive(sandbox_key):
 
 
 def test_canonical_path_and_parts_use_canonical_root_alias(sandbox_key):
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     rel_parts = sandbox_key.parts[1:]
     key = Key.from_parts(("HKCU", *rel_parts, "Canon"))
@@ -214,7 +214,7 @@ def test_canonical_path_and_parts_use_canonical_root_alias(sandbox_key):
 
 
 def test_canonical_path_for_raw_handle_ignores_first_label():
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     key_foo = Key(100, "foo")
     key_bar = Key(100, "bar")
@@ -226,7 +226,7 @@ def test_canonical_path_for_raw_handle_ignores_first_label():
 
 
 def test_parts_include_root_and_subkeys(sandbox_key):
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     key = sandbox_key.subkey("Parts", "Leaf")
 
@@ -240,21 +240,21 @@ def test_parts_include_root_and_subkeys(sandbox_key):
 
 
 def test_parts_for_root_only_contains_root_token():
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     root = Key.current_user()
     assert root.parts == ("HKEY_CURRENT_USER",)
 
 
 def test_from_parts_accepts_alias_and_roundtrips():
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
-    key = Key.from_parts(("HKCU", "Software", "winregkit-tests"))
-    assert key.parts == ("HKCU", "Software", "winregkit-tests")
+    key = Key.from_parts(("HKCU", "Software", "regkit-tests"))
+    assert key.parts == ("HKCU", "Software", "regkit-tests")
 
 
 def test_from_parts_invalid_input_raises_value_error():
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     with pytest.raises(ValueError):
         Key.from_parts(())
@@ -267,7 +267,7 @@ def test_from_parts_invalid_input_raises_value_error():
 
 
 def test_from_path_with_full_root_name(sandbox_key):
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     with sandbox_key.create("FromPath", "Full") as key:
         key["value"] = "ok"
@@ -279,7 +279,7 @@ def test_from_path_with_full_root_name(sandbox_key):
 
 
 def test_from_path_with_root_alias(sandbox_key):
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     with sandbox_key.create("FromPath", "Alias") as key:
         key["value"] = "ok"
@@ -291,7 +291,7 @@ def test_from_path_with_root_alias(sandbox_key):
 
 
 def test_from_path_root_only_returns_open_root():
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     root = Key.from_path("HKCU")
     assert root.is_open()
@@ -299,7 +299,7 @@ def test_from_path_root_only_returns_open_root():
 
 
 def test_from_path_invalid_paths_raise_value_error():
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     with pytest.raises(ValueError):
         Key.from_path("")
@@ -312,7 +312,7 @@ def test_from_path_invalid_paths_raise_value_error():
 
 
 def test_key_int_parent_with_name_is_opened_and_named():
-    import src.winregkit.registry as registry_module
+    import src.regkit.registry as registry_module
 
     key = registry_module.Key(registry_module.winreg.HKEY_CURRENT_USER, "Software")
     assert key.is_open()
@@ -320,13 +320,13 @@ def test_key_int_parent_with_name_is_opened_and_named():
 
 
 def test_is_hive_true_for_predefined_root():
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     assert Key.current_user().is_hive()
 
 
 def test_is_hive_false_for_non_hive_int_handle():
-    from src.winregkit.registry import Key
+    from src.regkit.registry import Key
 
     assert not Key(100, "Software").is_hive()
 
@@ -706,14 +706,14 @@ def test_from_dict_prefers_values_typed_when_present(sandbox_key):
 @pytest.mark.usefixtures("require_real_winreg")
 class TestKeyRealReadOnly:
     def test_enumerate_root_subkeys(self):
-        from src.winregkit.registry import Key
+        from src.regkit.registry import Key
 
         with Key.current_user() as root:
             names = [sub.name for sub in root.subkeys()]
             assert isinstance(names, list)
 
     def test_iterate_values_and_types(self):
-        from src.winregkit.registry import Key
+        from src.regkit.registry import Key
 
         with Key.current_user() as root:
             items_typed = list(root.items_typed())
@@ -728,7 +728,7 @@ class TestKeyRealReadOnly:
                 assert fetched_type == value_type
 
     def test_open_first_subkey_and_enumerate(self):
-        from src.winregkit.registry import Key
+        from src.regkit.registry import Key
 
         with Key.current_user() as root:
             first_subkey = next(root.subkeys(), None)
@@ -741,7 +741,7 @@ class TestKeyRealReadOnly:
                 _ = list(sub.items_typed())
 
     def test_depth_first_hkcu_snapshot_is_tree_like(self):
-        from src.winregkit.registry import Key
+        from src.regkit.registry import Key
 
         max_keys = 100
         visited = 0

@@ -1,8 +1,8 @@
-# Copilot Instructions for winregkit
+# Copilot Instructions for regkit
 
 ## Project context
-- `winregkit` is a small Python library around Windows Registry operations.
-- Main implementation lives in `src/winregkit/`.
+- `regkit` is a small Python library around Windows Registry operations.
+- Main implementation lives in `src/regkit/`.
 - Tests rely heavily on `tests/fakewinreg.py` to validate behavior on non-Windows and to compare against real `winreg` when available.
 
 ## Tech and tooling
@@ -10,7 +10,7 @@
 - Packaging/build: `hatchling` (`pyproject.toml`).
 - Environment/dependency workflow uses **uv**.
 - Version management should use `uv version` (e.g. `uv version --bump patch`, `uv version 0.0.1rc1`) instead of manually editing `pyproject.toml`.
-- Type checking uses **mypy strict mode** on `src/winregkit`.
+- Type checking uses **mypy strict mode** on `src/regkit`.
 - Linting/import order uses **ruff** with import sorting (`I`).
 
 ## Code style and implementation rules
@@ -29,12 +29,12 @@
   - `uv sync --dev`
   - `pytest`
 - If type-significant code is changed, also run:
-  - `uv run mypy src/winregkit`
+  - `uv run mypy src/regkit`
 
 ## File-specific guidance
-- `src/winregkit/registry.py` is the core behavior surface; changes here should preserve context-manager and handle lifecycle semantics (`open`, `close`, `opened`, `create`, `delete`).
+- `src/regkit/registry.py` is the core behavior surface; changes here should preserve context-manager and handle lifecycle semantics (`open`, `close`, `opened`, `create`, `delete`).
 - `tests/fakewinreg.py` is a behavioral compatibility shim. If production behavior changes, update tests and shim only when required by the requested change.
-- CLI (`src/winregkit/cli.py`) is intentionally minimal currently; do not expand it unless requested.
+- CLI (`src/regkit/cli.py`) is intentionally minimal currently; do not expand it unless requested.
 
 ## When adding or changing code
 - Add/adjust tests in `tests/` for any behavior change.
@@ -45,7 +45,7 @@
 - Keep changelog entries concise and user-facing; avoid listing individual development bug-fix details.
 
 ## Things to double-check before finishing
-- No accidental public API breaks in `winregkit.__init__` exports.
+- No accidental public API breaks in `regkit.__init__` exports.
 - Tests pass locally.
 - New code passes strict typing.
 - Run `uvx ruff check` and `uvx ruff format --check` before pushing.

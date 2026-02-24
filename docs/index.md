@@ -1,4 +1,4 @@
-# winregkit
+# regkit
 
 A modern, pythonic interface to the Windows registry.
 
@@ -12,10 +12,10 @@ A modern, pythonic interface to the Windows registry.
 ## Quick start
 
 ```python
-from winregkit import current_user
+from regkit import current_user
 
 with current_user.open("Software", "MyApp", write=True) as key:
-    key["name"] = "winregkit"
+    key["name"] = "regkit"
     key["enabled"] = 1
 
 with current_user.open("Software", "MyApp") as key:

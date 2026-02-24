@@ -50,4 +50,4 @@ jobs:
 
       - name: Type check (mypy)
         if: runner.os == 'Windows'
-        run: uv run mypy src/winregkit
+        run: uv run mypy src/regkit

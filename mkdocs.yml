@@ -1,8 +1,8 @@
-site_name: winregkit
+site_name: regkit
 site_description: A modern, pythonic interface to the Windows registry.
-site_url: https://kristjanvalur.github.io/winregkit/
-repo_url: https://github.com/kristjanvalur/winregkit
-repo_name: kristjanvalur/winregkit
+site_url: https://kristjanvalur.github.io/regkit/
+repo_url: https://github.com/kristjanvalur/regkit
+repo_name: kristjanvalur/regkit
 
 theme:
   name: material
