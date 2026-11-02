@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-No tracked entries yet.
+- Declare and test support for Python 3.15.
 
 ## 0.3.0 - 2026-02-24
 
