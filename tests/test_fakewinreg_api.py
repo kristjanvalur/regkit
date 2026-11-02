@@ -164,7 +164,7 @@ def test_delete_value_and_error_paths(module_and_key):
     try:
         # set a named value and then delete it
         module.SetValueEx(t, "named", 0, module.REG_SZ, "to-delete")
-        val, typ = module.QueryValueEx(t, "named")
+        val, _typ = module.QueryValueEx(t, "named")
         assert val == "to-delete"
         module.DeleteValue(t, "named")
         # now querying should raise
@@ -217,7 +217,7 @@ def test_module_exercises(module_and_key):
     i = 0
     while True:
         try:
-            name, value, typ = module.EnumValue(h, i)
+            name, _value, _typ = module.EnumValue(h, i)
             vals.add(name)
             i += 1
         except OSError:
@@ -310,7 +310,7 @@ def test_enumerate_subkeys_and_values(module_and_key):
     j = 0
     while True:
         try:
-            name, value, typ = module.EnumValue(h, j)
+            name, _value, _typ = module.EnumValue(h, j)
             vals.add(name)
             j += 1
         except OSError:
@@ -523,7 +523,7 @@ def test_query_info_key_timestamp_updates(fake_module_and_key):
 
     # initial timestamp after creating the key
     t0_ns = time.time_ns()
-    nsub, nval, filetime0 = fake_mod.QueryInfoKey(h)
+    _nsub, nval, filetime0 = fake_mod.QueryInfoKey(h)
     # convert back to ns for comparison using helper
     ns0 = fake.filetime_to_time_ns(filetime0)
     # allow small negative drift due to race; ensure timestamp is near current time
@@ -532,7 +532,7 @@ def test_query_info_key_timestamp_updates(fake_module_and_key):
     # set a new named value and check timestamp increased
     time_before_set = time.time_ns()
     fake_mod.SetValueEx(h, "ts_v", 0, fake_mod.REG_SZ, "v")
-    nsub, nval, filetime1 = fake_mod.QueryInfoKey(h)
+    _nsub, nval, filetime1 = fake_mod.QueryInfoKey(h)
     ns1 = fake.filetime_to_time_ns(filetime1)
     assert nval >= 1
     assert ns1 >= time_before_set - 1_000_000  # at least very close (1ms tolerance)
@@ -540,7 +540,7 @@ def test_query_info_key_timestamp_updates(fake_module_and_key):
     # delete the value and ensure timestamp updates again
     time_before_del = time.time_ns()
     fake_mod.DeleteValue(h, "ts_v")
-    nsub, nval, filetime2 = fake_mod.QueryInfoKey(h)
+    _nsub, nval, filetime2 = fake_mod.QueryInfoKey(h)
     ns2 = fake.filetime_to_time_ns(filetime2)
     assert ns2 >= time_before_del - 1_000_000
 
@@ -554,13 +554,13 @@ def test_parent_timestamp_on_subkey_create_delete(module_and_key):
     module, h = module_and_key
 
     # capture initial parent timestamp
-    nsub0, nval0, ft0 = module.QueryInfoKey(h)
+    _nsub0, _nval0, ft0 = module.QueryInfoKey(h)
     # create a direct subkey
     sub = module.CreateKeyEx(h, "ParentTSChild", access=module.KEY_ALL_ACCESS)
     # slight sleep to avoid tight timestamp races on fast CI/machines
     time.sleep(0.001)
     try:
-        nsub1, nval1, ft1 = module.QueryInfoKey(h)
+        _nsub1, _nval1, ft1 = module.QueryInfoKey(h)
     finally:
         try:
             sub.Close()
@@ -576,7 +576,7 @@ def test_parent_timestamp_on_subkey_create_delete(module_and_key):
         # some backends may raise; ignore for teardown
         pass
 
-    nsub2, nval2, ft2 = module.QueryInfoKey(h)
+    _nsub2, _nval2, ft2 = module.QueryInfoKey(h)
 
     # Behavior expectations:
     # real winreg on Windows should show the parent's timestamp strictly

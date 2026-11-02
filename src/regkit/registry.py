@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import ntpath
+import types
 import winreg
+from collections.abc import Callable, Iterator, Sequence
 from functools import total_ordering
-from typing import Any, Callable, Iterator, Optional, Sequence, Tuple, Union, cast
+from typing import Any, ClassVar, Self, TypeAlias, cast
 
-from typing_extensions import TypeAlias
-
-HKeyTypeAlias: TypeAlias = Union[winreg.HKEYType, int]
+HKeyTypeAlias: TypeAlias = winreg.HKEYType | int
 
 
 # map the winreg root key constants to their names
@@ -43,7 +43,7 @@ class Key:
     - Read/write values via dict-style access (`key[name]`)
     """
 
-    _ROOT_HANDLE_NAMES: dict[str, str] = {
+    _ROOT_HANDLE_NAMES: ClassVar[dict[str, str]] = {
         "HKEY_CLASSES_ROOT": "HKEY_CLASSES_ROOT",
         "HKCR": "HKEY_CLASSES_ROOT",
         "HKEY_CURRENT_USER": "HKEY_CURRENT_USER",
@@ -156,7 +156,7 @@ class Key:
         if any(not n for n in names):
             raise ValueError("Key names cannot be empty")
         self._name = ntpath.join(*names) if names else (handle_to_str(parent) if not isinstance(parent, Key) else "")
-        self._handle: Optional[HKeyTypeAlias] = parent if not isinstance(parent, Key) else None
+        self._handle: HKeyTypeAlias | None = parent if not isinstance(parent, Key) else None
 
     @property
     def name(self) -> str:
@@ -170,7 +170,7 @@ class Key:
         """Destructor to ensure the key is closed"""
         self.close()
 
-    def _hkey_name(self) -> Tuple[Any, str]:
+    def _hkey_name(self) -> tuple[Any, str]:
         """returns a handle and name for the key.  Used internally."""
         if isinstance(self._parent, Key):
             if self._parent.is_open():
@@ -179,7 +179,7 @@ class Key:
             return h, join_names(n, self._name)
         return self._parent, self._name
 
-    def _hkey_fullname(self) -> Tuple[Any, str]:
+    def _hkey_fullname(self) -> tuple[Any, str]:
         """returns a top level handle and full name for the key.  Used internally."""
         if isinstance(self._parent, Key):
             h, n = self._parent._hkey_fullname()
@@ -535,13 +535,18 @@ class Key:
         except FileNotFoundError as e:
             raise KeyError(name) from e
 
-    def __enter__(self) -> Key:
+    def __enter__(self) -> Self:
         """Enter context manager.  Raises RuntimeError if the key is not open"""
         if not self.is_open():
             raise RuntimeError("Key is not open")
         return self
 
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> None:
         self.close()
 
     def delete(self, tree: bool = False, missing_ok: bool = True) -> None:
@@ -622,7 +627,7 @@ class Key:
                 for sub in key.subkeys():
                     if sub.name not in keys_data:
                         sub.delete(tree=True)
-                for name in key.keys():
+                for name in key.keys():  # noqa: SIM118 - Key has no __iter__
                     if name not in desired_value_names:
                         del key[name]
 

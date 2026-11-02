@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Adopt ruff 0.17 default lint rules (annotation modernisation, `typing.Self` for `__enter__`, precise `__exit__` annotations); `BLE001`/`S110` ignored since registry probing deliberately swallows errors.
 - Declare and test support for Python 3.15.
 
 ## 0.3.0 - 2026-02-24

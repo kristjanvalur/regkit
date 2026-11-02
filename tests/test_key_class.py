@@ -527,9 +527,8 @@ def test_open_handle_on_open_key_raises_runtimeerror(sandbox_key):
     with key_ref.open(create=True):
         pass
 
-    with key_ref.open() as key:
-        with pytest.raises(RuntimeError):
-            key.open_handle()
+    with key_ref.open() as key, pytest.raises(RuntimeError):
+        key.open_handle()
 
 
 def test_create_creates_or_opens_and_preserves_values(sandbox_key):
