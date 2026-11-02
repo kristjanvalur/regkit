@@ -2,9 +2,10 @@
 # It simulates the behavior of the Windows Registry for unit tests.
 
 import time
+import types
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Final, TypeAlias
+from typing import Any, Final, Self, TypeAlias
 
 # difference between Windows epoch (1601-01-01) and Unix epoch (1970-01-01)
 # in nanoseconds: 11644473600 seconds
@@ -104,11 +105,14 @@ class HKEYType:
             # Use PermissionError to mirror real permission-denied semantics
             raise PermissionError("Access denied")
 
-    def __enter__(self) -> "HKEYType":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
-        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: types.TracebackType | None,
     ) -> bool | None:
         self.Close()
 
