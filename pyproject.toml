@@ -40,5 +40,6 @@ build-backend = "hatchling.build"
 line-length = 120
 target-version = "py311"
 src = ["src", "tests"]
-lint.extend-select = ["I"] # Ensure import order is checked
+# Pin ruff's pre-0.17 default rule set; CI runs ruff unpinned.
+lint.select = ["E4", "E7", "E9", "F", "I"]
 

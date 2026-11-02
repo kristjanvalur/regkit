@@ -71,7 +71,6 @@ with current_user.open("Software", "MyApp", write=True) as key:
 # existence checks are available on keys:
 app_key = current_user.subkey("Software", "MyApp")
 print(app_key.exists())
-
 ```
 
 `subkey(...)` is optional convenience for pre-building a path. You can either
